@@ -17,3 +17,115 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── 마스코트 날씨 연출 ───────────────────────────── */
+
+/* 맑음: 통통 튄다 */
+.mascot-hop {
+  animation: mascot-hop 1.8s ease-in-out infinite;
+}
+@keyframes mascot-hop {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-7%); }
+  60% { transform: translateY(0) scaleY(0.96); }
+}
+
+/* 구름: 살랑살랑 */
+.mascot-sway {
+  transform-origin: 50% 100%;
+  animation: mascot-sway 3.2s ease-in-out infinite;
+}
+@keyframes mascot-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+/* 폭풍: 몸을 살짝 떤다 */
+.mascot-shiver {
+  animation: mascot-shiver 0.35s linear infinite;
+}
+@keyframes mascot-shiver {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1.5%); }
+  75% { transform: translateX(1.5%); }
+}
+
+/* 우산: 손잡이(그립)를 축으로 기울고 흔들린다 */
+.mascot-umbrella-rain,
+.mascot-umbrella-storm {
+  transform-box: view-box;
+  transform-origin: 106px 99px; /* mascot_new.tsx의 GRIP */
+}
+.mascot-umbrella-rain {
+  animation: mascot-umbrella-rain 2.6s ease-in-out infinite;
+}
+@keyframes mascot-umbrella-rain {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(2deg); }
+}
+.mascot-umbrella-storm {
+  animation: mascot-umbrella-storm 1.6s ease-in-out infinite;
+}
+@keyframes mascot-umbrella-storm {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(-16deg); }
+  22% { transform: rotate(11deg); }
+  32% { transform: rotate(-21deg); }
+  44% { transform: rotate(7deg); }
+  58% { transform: rotate(-12deg); }
+  72% { transform: rotate(17deg); }
+  86% { transform: rotate(-6deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* 빗방울 */
+.mascot-rain-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mascot-rain-layer.is-storm {
+  transform: skewX(-22deg);
+}
+.mascot-drop {
+  position: absolute;
+  width: 1.5px;
+  height: 12%;
+  border-radius: 1px;
+  background: linear-gradient(transparent, #60a5fa);
+  opacity: 0;
+  animation: mascot-rain var(--dur, 0.9s) linear var(--delay, 0s) infinite;
+}
+@keyframes mascot-rain {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: translateY(var(--fall, 850%)); opacity: 0; }
+}
+
+/* 번개 */
+.mascot-bolt {
+  opacity: 0;
+  animation: mascot-bolt 3.4s linear infinite;
+  filter: drop-shadow(0 0 4px #fde047);
+}
+@keyframes mascot-bolt {
+  0%, 84% { opacity: 0; }
+  85% { opacity: 1; }
+  88% { opacity: 0.1; }
+  90% { opacity: 1; }
+  95%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-hop,
+  .mascot-sway,
+  .mascot-shiver,
+  .mascot-umbrella-rain,
+  .mascot-umbrella-storm,
+  .mascot-bolt {
+    animation: none;
+  }
+  .mascot-drop {
+    display: none;
+  }
+}

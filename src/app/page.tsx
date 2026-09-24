@@ -7,6 +7,7 @@ import { setUnitStatus } from "@/app/unit-actions_new";
 import { dDayLabel, daysUntil, isDone, studyWeather, type Weather } from "@/lib/weather_new";
 import { recommendToday } from "@/lib/recommend_new";
 import { futureMeMessage } from "@/lib/future-me_new";
+import { MascotSays } from "@/components/mascot_new";
 
 const TONE_CLASS: Record<Weather["tone"], string> = {
   sunny: "border-amber-200 bg-amber-50",
@@ -71,16 +72,16 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       {user ? (
         <>
           {futureMe && (
-            <section className="flex items-start gap-3 rounded-2xl bg-zinc-900 px-4 py-4 text-white">
-              <span className="text-3xl" aria-hidden>
-                {futureMe.weather}
+            <section className="flex flex-col gap-3 rounded-2xl bg-zinc-900 px-4 py-4">
+              <span className="text-xs font-semibold tracking-wide text-zinc-400">
+                📡 시험 날의 나에게서 온 예보
               </span>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold tracking-wide text-zinc-400">
-                  📡 시험 날의 나에게서 온 예보
+              <MascotSays size="lg" mood={focus?.weather.tone}>
+                <span className="mr-1" aria-hidden>
+                  {futureMe.weather}
                 </span>
-                <p className="text-sm leading-relaxed">{futureMe.message}</p>
-              </div>
+                {futureMe.message}
+              </MascotSays>
             </section>
           )}
 
@@ -174,15 +175,15 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                           </form>
                         </div>
                       </div>
-                      <p className="text-sm text-zinc-700">{weather.detail}</p>
+                      <MascotSays size="sm" mood={weather.tone}>
+                        {weather.detail}
+                      </MascotSays>
                     </li>
                   );
                 })}
               </ul>
             ) : (
-              <p className="text-sm text-zinc-500">
-                아직 과목이 없어요. 아래에서 첫 과목을 추가해 보세요.
-              </p>
+              <MascotSays>아직 과목이 없어요. 아래에서 첫 과목을 추가해 보세요!</MascotSays>
             )}
           </section>
 

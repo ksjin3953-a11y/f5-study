@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server_new";
 import { UnitForm } from "@/components/unit-form_new";
 import { RecordForm } from "@/components/record-form_new";
+import { MascotSays } from "@/components/mascot_new";
 import { isDone, needsReview, studyWeather } from "@/lib/weather_new";
 import { deleteUnit, setUnitStatus, type UnitStatus } from "@/app/unit-actions_new";
 
@@ -52,15 +53,13 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
             .filter(Boolean)
             .join(" · ") || "시험일 미정"}
         </p>
-        <div className="mt-2 flex items-center gap-3 rounded-2xl border border-zinc-200 px-4 py-3">
-          <span className="text-3xl" aria-hidden>
-            {weather.icon}
+        <MascotSays className="mt-2" mood={weather.tone}>
+          <span className="font-semibold">
+            {weather.icon} {weather.label}
           </span>
-          <div className="flex flex-col">
-            <span className="font-semibold">{weather.label}</span>
-            <span className="text-sm text-zinc-600">{weather.detail}</span>
-          </div>
-        </div>
+          <br />
+          {weather.detail}
+        </MascotSays>
       </div>
 
       <section className="flex flex-col gap-2">
@@ -169,9 +168,7 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
             })}
           </ul>
         ) : (
-          <p className="text-sm text-zinc-500">
-            아직 단원이 없어요. 강의계획서를 보고 단원을 추가해 보세요.
-          </p>
+          <MascotSays>아직 단원이 없어요. 강의계획서를 보고 단원을 추가해 보세요!</MascotSays>
         )}
       </section>
 
