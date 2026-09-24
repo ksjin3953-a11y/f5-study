@@ -8,6 +8,9 @@ export type Weather = {
   label: string;
   detail: string;
   tone: "sunny" | "cloudy" | "rainy" | "stormy" | "none";
+  risk: number; // 클수록 위험. 대시보드 정렬에 쓴다.
+  // 시험 전 예보가 가능할 때만 채운다("시험 날의 나" 메시지에 쓴다).
+  forecast?: { daysLeft: number; remaining: number; projectedPercent: number | null };
 };
 
 type QuizLike = { passed: boolean; created_at: string };
@@ -51,18 +54,18 @@ export function studyWeather(subject: {
   const remaining = total - done;
 
   if (total === 0) {
-    return { icon: "📋", label: "단원 없음", detail: "단원을 추가하면 날씨를 알려드려요.", tone: "none" };
+    return { icon: "📋", label: "단원 없음", detail: "단원을 추가하면 날씨를 알려드려요.", tone: "none", risk: 1 };
   }
   if (remaining === 0) {
-    return { icon: "☀️", label: "맑음", detail: "모든 단원을 끝냈어요!", tone: "sunny" };
+    return { icon: "☀️", label: "맑음", detail: "모든 단원을 끝냈어요!", tone: "sunny", risk: 2 };
   }
   if (!subject.exam_date) {
-    return { icon: "📅", label: "시험일 미정", detail: "시험일을 정하면 날씨를 알려드려요.", tone: "none" };
+    return { icon: "📅", label: "시험일 미정", detail: "시험일을 정하면 날씨를 알려드려요.", tone: "none", risk: 1 };
   }
 
   const daysLeft = daysUntil(subject.exam_date);
   if (daysLeft < 0) {
-    return { icon: "🏁", label: "시험 끝", detail: `${done}/${total} 단원을 끝냈어요.`, tone: "none" };
+    return { icon: "🏁", label: "시험 끝", detail: `${done}/${total} 단원을 끝냈어요.`, tone: "none", risk: 0 };
   }
 
   const need =
@@ -81,19 +84,27 @@ export function studyWeather(subject: {
   ).length;
 
   if (done === 0 && recentDone === 0) {
-    return { icon: "🌫️", label: "관측 중", detail: `첫 단원을 끝내면 예보가 시작돼요. ${need}`, tone: "none" };
+    return {
+      icon: "🌫️",
+      label: "관측 중",
+      detail: `첫 단원을 끝내면 예보가 시작돼요. ${need}`,
+      tone: "none",
+      risk: 3,
+      forecast: { daysLeft, remaining, projectedPercent: null },
+    };
   }
 
   const pace = recentDone / window;
   const projected = Math.min(total, done + pace * daysLeft);
   const ratio = projected / total;
   const reviews = subject.units.filter(needsReview).length;
+  const fc = { daysLeft, remaining, projectedPercent: Math.round(ratio * 100) };
   const forecast =
     `지금 속도면 시험 날까지 ${Math.floor(projected)}/${total} 단원(${Math.round(ratio * 100)}%).` +
     (reviews > 0 ? ` 복습 필요 ${reviews}단원.` : "");
 
-  if (ratio >= 1) return { icon: "☀️", label: "맑음", detail: `${forecast} 이대로만 가요!`, tone: "sunny" };
-  if (ratio >= 0.8) return { icon: "⛅", label: "구름", detail: `${forecast} ${need}`, tone: "cloudy" };
-  if (ratio >= 0.5) return { icon: "🌧️", label: "비", detail: `${forecast} ${need}`, tone: "rainy" };
-  return { icon: "⛈️", label: "폭풍", detail: `${forecast} ${need}`, tone: "stormy" };
+  if (ratio >= 1) return { icon: "☀️", label: "맑음", detail: `${forecast} 이대로만 가요!`, tone: "sunny", risk: 2, forecast: fc };
+  if (ratio >= 0.8) return { icon: "⛅", label: "구름", detail: `${forecast} ${need}`, tone: "cloudy", risk: 4, forecast: fc };
+  if (ratio >= 0.5) return { icon: "🌧️", label: "비", detail: `${forecast} ${need}`, tone: "rainy", risk: 5, forecast: fc };
+  return { icon: "⛈️", label: "폭풍", detail: `${forecast} ${need}`, tone: "stormy", risk: 6, forecast: fc };
 }

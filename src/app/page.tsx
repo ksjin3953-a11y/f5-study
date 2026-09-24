@@ -6,6 +6,7 @@ import { deleteSubject } from "@/app/subject-actions_new";
 import { setUnitStatus } from "@/app/unit-actions_new";
 import { dDayLabel, daysUntil, isDone, studyWeather, type Weather } from "@/lib/weather_new";
 import { recommendToday } from "@/lib/recommend_new";
+import { futureMeMessage } from "@/lib/future-me_new";
 
 const TONE_CLASS: Record<Weather["tone"], string> = {
   sunny: "border-amber-200 bg-amber-50",
@@ -31,6 +32,25 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         .order("exam_date", { ascending: true, nullsFirst: false })
     : { data: null };
   const recommendations = recommendToday(subjects ?? []);
+  // 위험한 과목부터. 위험도가 같으면 시험일 순서(조회 순서)를 유지한다.
+  const cards = (subjects ?? [])
+    .map((s) => ({ ...s, weather: studyWeather(s) }))
+    .sort((a, b) => b.weather.risk - a.weather.risk);
+
+  // "시험 날의 나": 예보가 있는 과목 중 가장 위험한 과목에 대해 말한다.
+  const focus = cards.find((c) => c.weather.forecast);
+  const futureMe = focus
+    ? futureMeMessage({
+        subjectName: focus.name,
+        weather: focus.weather,
+        nextUnitTitle:
+          recommendations.find((r) => r.subjectId === focus.id)?.units[0]?.title ??
+          focus.units
+            .filter((u) => !isDone(u))
+            .sort((a, b) => a.position - b.position)[0]?.title ??
+          null,
+      })
+    : null;
 
   return (
     <main
@@ -50,6 +70,20 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {user ? (
         <>
+          {futureMe && (
+            <section className="flex items-start gap-3 rounded-2xl bg-zinc-900 px-4 py-4 text-white">
+              <span className="text-3xl" aria-hidden>
+                {futureMe.weather}
+              </span>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold tracking-wide text-zinc-400">
+                  📡 시험 날의 나에게서 온 예보
+                </span>
+                <p className="text-sm leading-relaxed">{futureMe.message}</p>
+              </div>
+            </section>
+          )}
+
           {recommendations.length > 0 && (
             <section className="flex flex-col gap-3">
               <h2 className="font-semibold">오늘의 추천 공부</h2>
@@ -102,8 +136,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <h2 className="font-semibold">오늘의 학습 날씨</h2>
             {subjects && subjects.length > 0 ? (
               <ul className="flex flex-col gap-3">
-                {subjects.map((s) => {
-                  const weather = studyWeather(s);
+                {cards.map((s) => {
+                  const { weather } = s;
                   const done = s.units.filter(isDone).length;
                   return (
                     <li
