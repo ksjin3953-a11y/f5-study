@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server_new";
 import { UnitForm } from "@/components/unit-form_new";
 import { RecordForm } from "@/components/record-form_new";
 import { MascotSays } from "@/components/mascot_new";
-import { BossPanel } from "@/components/boss-panel_new";
+import { BossMini, BossPanel } from "@/components/boss-panel_new";
 import { daysUntil, isDone, needsReview, studyWeather } from "@/lib/weather_new";
 import { deleteUnit, setUnitStatus, type UnitStatus } from "@/app/unit-actions_new";
 
@@ -46,15 +46,20 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-6 py-16">
       <div className="flex flex-col gap-2">
-        <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-900">
-          ← 내 과목
-        </Link>
-        <h1 className="text-2xl font-bold tracking-tight">{subject.name}</h1>
-        <p className="text-sm text-zinc-500">
-          {[subject.professor, subject.exam_date && `시험 ${subject.exam_date}`]
-            .filter(Boolean)
-            .join(" · ") || "시험일 미정"}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-2">
+            <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-900">
+              ← 내 과목
+            </Link>
+            <h1 className="text-2xl font-bold tracking-tight">{subject.name}</h1>
+            <p className="text-sm text-zinc-500">
+              {[subject.professor, subject.exam_date && `시험 ${subject.exam_date}`]
+                .filter(Boolean)
+                .join(" · ") || "시험일 미정"}
+            </p>
+          </div>
+          <BossMini remaining={total - done} total={total} />
+        </div>
         <MascotSays className="mt-2" mood={weather.tone}>
           <span className="font-semibold">
             {weather.icon} {weather.label}
