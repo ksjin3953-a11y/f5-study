@@ -48,6 +48,11 @@ create index if not exists units_subject_id_idx on public.units (subject_id);
 create index if not exists study_logs_unit_id_idx on public.study_logs (unit_id);
 create index if not exists quiz_results_unit_id_idx on public.quiz_results (unit_id);
 
+-- 로그인한 사용자(authenticated)에게 테이블 사용 권한. 어떤 행을 볼 수 있는지는 아래 RLS가 정한다.
+grant select, insert, update, delete
+  on public.subjects, public.units, public.study_logs, public.quiz_results
+  to authenticated;
+
 -- RLS: 본인 데이터만
 alter table public.subjects enable row level security;
 alter table public.units enable row level security;
