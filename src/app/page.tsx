@@ -3,18 +3,17 @@ import { createClient } from "@/lib/supabase/server_new";
 import { LoginButton, LogoutButton } from "@/components/auth-buttons_new";
 import { SubjectForm } from "@/components/subject-form_new";
 import { deleteSubject } from "@/app/subject-actions_new";
+import { setUnitStatus } from "@/app/unit-actions_new";
+import { dDayLabel, daysUntil, isDone, studyWeather, type Weather } from "@/lib/weather_new";
+import { recommendToday } from "@/lib/recommend_new";
 
-// 오늘(한국 시간)부터 시험일까지 남은 날 수
-function daysUntil(examDate: string) {
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-  return Math.round((Date.parse(examDate) - Date.parse(today)) / 86_400_000);
-}
-
-function dDayLabel(days: number) {
-  if (days > 0) return `D-${days}`;
-  if (days === 0) return "D-Day";
-  return "시험 끝";
-}
+const TONE_CLASS: Record<Weather["tone"], string> = {
+  sunny: "border-amber-200 bg-amber-50",
+  cloudy: "border-sky-200 bg-sky-50",
+  rainy: "border-blue-300 bg-blue-50",
+  stormy: "border-violet-300 bg-violet-50",
+  none: "border-zinc-200",
+};
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { error } = await searchParams;
@@ -26,9 +25,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const { data: subjects } = user
     ? await supabase
         .from("subjects")
-        .select("id, name, professor, exam_date, units(status)")
+        .select(
+          "id, name, professor, exam_date, created_at, units(id, title, status, position, completed_at, quiz_results(passed, created_at))"
+        )
         .order("exam_date", { ascending: true, nullsFirst: false })
     : { data: null };
+  const recommendations = recommendToday(subjects ?? []);
 
   return (
     <main
@@ -48,45 +50,100 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {user ? (
         <>
-          <section className="flex flex-col gap-3">
-            <h2 className="font-semibold">내 과목</h2>
-            {subjects && subjects.length > 0 ? (
-              <ul className="flex flex-col gap-2">
-                {subjects.map((s) => (
+          {recommendations.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <h2 className="font-semibold">오늘의 추천 공부</h2>
+              <ul className="flex flex-col gap-3">
+                {recommendations.map((r) => (
                   <li
-                    key={s.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 px-4 py-3"
+                    key={r.subjectId}
+                    className="flex flex-col gap-2 rounded-2xl border border-zinc-200 px-4 py-4"
                   >
-                    <Link href={`/subjects/${s.id}`} className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-medium hover:underline">{s.name}</span>
-                      <span className="text-sm text-zinc-500">
-                        {[
-                          s.professor,
-                          s.exam_date,
-                          s.units.length > 0 &&
-                            `진도 ${s.units.filter((u) => u.status === "done").length}/${s.units.length}`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || "시험일 미정"}
+                    <Link href={`/subjects/${r.subjectId}`} className="flex flex-col hover:underline">
+                      <span className="font-medium">
+                        {r.weatherIcon} {r.subjectName}
                       </span>
+                      <span className="text-sm text-zinc-500">{r.reason}</span>
                     </Link>
-                    <div className="flex shrink-0 items-center gap-3">
-                      {s.exam_date && (
-                        <span className="text-sm font-semibold">
-                          {dDayLabel(daysUntil(s.exam_date))}
-                        </span>
-                      )}
-                      <form action={deleteSubject.bind(null, s.id)}>
-                        <button
-                          className="text-sm text-zinc-400 transition-colors hover:text-red-600"
-                          aria-label={`${s.name} 삭제`}
-                        >
-                          삭제
-                        </button>
-                      </form>
-                    </div>
+                    <ul className="flex flex-col gap-1">
+                      {r.units.map((u) => (
+                        <li key={u.id} className="flex items-center justify-between gap-3">
+                          <span className="min-w-0 truncate text-sm">
+                            {u.status === "doing" && (
+                              <span className="mr-1 text-xs text-sky-600">하는 중</span>
+                            )}
+                            {u.review && <span className="mr-1 text-xs text-violet-600">복습</span>}
+                            {u.title}
+                          </span>
+                          {u.review ? (
+                            <Link
+                              href={`/subjects/${r.subjectId}`}
+                              className="flex h-7 shrink-0 items-center rounded-full border border-zinc-300 px-3 text-xs transition-colors hover:bg-zinc-900 hover:text-white"
+                            >
+                              퀴즈 다시 보기
+                            </Link>
+                          ) : (
+                            <form action={setUnitStatus.bind(null, u.id, "done")}>
+                              <button className="h-7 shrink-0 rounded-full border border-zinc-300 px-3 text-xs transition-colors hover:bg-zinc-900 hover:text-white">
+                                완료
+                              </button>
+                            </form>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
+              </ul>
+            </section>
+          )}
+
+          <section className="flex flex-col gap-3">
+            <h2 className="font-semibold">오늘의 학습 날씨</h2>
+            {subjects && subjects.length > 0 ? (
+              <ul className="flex flex-col gap-3">
+                {subjects.map((s) => {
+                  const weather = studyWeather(s);
+                  const done = s.units.filter(isDone).length;
+                  return (
+                    <li
+                      key={s.id}
+                      className={`flex flex-col gap-2 rounded-2xl border px-4 py-4 ${TONE_CLASS[weather.tone]}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <Link href={`/subjects/${s.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                          <span className="text-3xl" aria-hidden>
+                            {weather.icon}
+                          </span>
+                          <span className="flex min-w-0 flex-col">
+                            <span className="truncate font-medium hover:underline">{s.name}</span>
+                            <span className="text-sm text-zinc-500">
+                              {weather.label}
+                              {s.units.length > 0 && ` · 진도 ${done}/${s.units.length}`}
+                              {s.professor && ` · ${s.professor}`}
+                            </span>
+                          </span>
+                        </Link>
+                        <div className="flex shrink-0 items-center gap-3">
+                          {s.exam_date && (
+                            <span className="text-sm font-semibold">
+                              {dDayLabel(daysUntil(s.exam_date))}
+                            </span>
+                          )}
+                          <form action={deleteSubject.bind(null, s.id)}>
+                            <button
+                              className="text-sm text-zinc-400 transition-colors hover:text-red-600"
+                              aria-label={`${s.name} 삭제`}
+                            >
+                              삭제
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                      <p className="text-sm text-zinc-700">{weather.detail}</p>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-sm text-zinc-500">
