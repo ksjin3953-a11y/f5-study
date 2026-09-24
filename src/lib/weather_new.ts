@@ -29,7 +29,7 @@ export function isDone(unit: UnitLike) {
 }
 
 // 오늘(한국 시간) 날짜를 YYYY-MM-DD로
-function todayInSeoul() {
+export function todayInSeoul() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 }
 

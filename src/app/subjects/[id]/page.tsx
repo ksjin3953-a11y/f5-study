@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server_new";
 import { UnitForm } from "@/components/unit-form_new";
 import { RecordForm } from "@/components/record-form_new";
 import { MascotSays } from "@/components/mascot_new";
-import { isDone, needsReview, studyWeather } from "@/lib/weather_new";
+import { BossPanel } from "@/components/boss-panel_new";
+import { daysUntil, isDone, needsReview, studyWeather } from "@/lib/weather_new";
 import { deleteUnit, setUnitStatus, type UnitStatus } from "@/app/unit-actions_new";
 
 const STATUSES: { value: UnitStatus; label: string }[] = [
@@ -40,6 +41,7 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
   const done = units?.filter(isDone).length ?? 0;
   const percent = total ? Math.round((done / total) * 100) : 0;
   const weather = studyWeather({ ...subject, units: units ?? [] });
+  const daysLeft = subject.exam_date ? daysUntil(subject.exam_date) : null;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-6 py-16">
@@ -61,6 +63,8 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
           {weather.detail}
         </MascotSays>
       </div>
+
+      <BossPanel remaining={total - done} total={total} daysLeft={daysLeft} />
 
       <section className="flex flex-col gap-2">
         <div className="flex justify-between text-sm">

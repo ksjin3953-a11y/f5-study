@@ -78,3 +78,39 @@ create policy "own quiz_results" on public.quiz_results
   for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+
+-- 먹이 주기 기록 (딱따구리 레벨 계산용). 받은 먹이는 단원·퀴즈·학습 기록에서 계산하고, 여기에는 먹인 것만 남긴다.
+create table if not exists public.feedings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  food text not null check (food in ('insect', 'pinecone', 'wood')),
+  fed_at timestamptz not null default now()
+);
+
+create index if not exists feedings_user_id_idx on public.feedings (user_id);
+
+grant select, insert on public.feedings to authenticated;
+
+alter table public.feedings enable row level security;
+
+create policy "own feedings" on public.feedings
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+-- 출석 기록 (하루 한 번). 출석 보상 나무 조각 계산용.
+create table if not exists public.check_ins (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  day date not null,
+  unique (user_id, day)
+);
+
+grant select, insert on public.check_ins to authenticated;
+
+alter table public.check_ins enable row level security;
+
+create policy "own check_ins" on public.check_ins
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);

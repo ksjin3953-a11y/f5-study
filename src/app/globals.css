@@ -116,7 +116,88 @@ body {
   95%, 100% { opacity: 0; }
 }
 
+/* ── 먹이 주기 ───────────────────────────── */
+
+/* 먹이가 위에서 떨어져 부리로 들어간다 */
+.pet-food-drop {
+  animation: pet-food-drop 0.7s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+@keyframes pet-food-drop {
+  0% { transform: translateY(-40px) scale(1) rotate(-20deg); opacity: 0; }
+  20% { opacity: 1; }
+  80% { transform: translateY(30px) scale(0.7) rotate(10deg); opacity: 1; }
+  100% { transform: translateY(38px) scale(0.2); opacity: 0; }
+}
+
+/* 냠냠: 찌그러졌다 펴진다 */
+.pet-munch {
+  transform-origin: 50% 100%;
+  animation: pet-munch 0.9s ease-out;
+}
+@keyframes pet-munch {
+  0%, 60% { transform: scale(1, 1); }
+  70% { transform: scale(1.08, 0.9); }
+  80% { transform: scale(0.95, 1.06); }
+  90% { transform: scale(1.04, 0.96); }
+  100% { transform: scale(1, 1); }
+}
+
+.pet-xp-float {
+  animation: pet-xp-float 1.3s ease-out forwards;
+}
+@keyframes pet-xp-float {
+  0%, 45% { transform: translateY(8px); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translateY(-18px); opacity: 0; }
+}
+
+.pet-level-up {
+  transform: translateX(-50%);
+  animation: pet-level-up 2.2s ease-out forwards;
+}
+@keyframes pet-level-up {
+  0% { transform: translateX(-50%) scale(0.4); opacity: 0; }
+  15% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+  25%, 80% { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-10px); opacity: 0; }
+}
+
+/* ── 보스(매) ───────────────────────────── */
+
+.boss-hover {
+  animation: boss-hover 2.4s ease-in-out infinite;
+}
+@keyframes boss-hover {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5%); }
+}
+
+/* 시험이 가까운데 HP가 많이 남았으면 날개를 치며 위협 */
+.boss-angry {
+  animation: boss-angry 0.9s ease-in-out infinite;
+}
+@keyframes boss-angry {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  20% { transform: translateY(-6%) rotate(-4deg); }
+  40% { transform: translateY(0) rotate(3deg); }
+  60% { transform: translateY(-4%) rotate(-2deg); }
+}
+
+.boss-defeated {
+  filter: grayscale(1);
+  opacity: 0.55;
+  transform: rotate(-12deg) translateY(6%);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .pet-food-drop,
+  .pet-munch,
+  .pet-xp-float,
+  .pet-level-up,
+  .boss-hover,
+  .boss-angry {
+    animation: none;
+  }
   .mascot-hop,
   .mascot-sway,
   .mascot-shiver,

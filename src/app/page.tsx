@@ -8,6 +8,8 @@ import { dDayLabel, daysUntil, isDone, studyWeather, type Weather } from "@/lib/
 import { recommendToday } from "@/lib/recommend_new";
 import { futureMeMessage } from "@/lib/future-me_new";
 import { MascotSays } from "@/components/mascot_new";
+import { PetPanel } from "@/components/pet-panel_new";
+import { loadGameState } from "@/lib/game-state_new";
 
 const TONE_CLASS: Record<Weather["tone"], string> = {
   sunny: "border-amber-200 bg-amber-50",
@@ -28,11 +30,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     ? await supabase
         .from("subjects")
         .select(
-          "id, name, professor, exam_date, created_at, units(id, title, status, position, completed_at, quiz_results(passed, created_at))"
+          "id, name, professor, exam_date, created_at, units(id, title, status, position, completed_at, quiz_results(passed, created_at), study_logs(id))"
         )
         .order("exam_date", { ascending: true, nullsFirst: false })
     : { data: null };
   const recommendations = recommendToday(subjects ?? []);
+  const game = user ? await loadGameState(supabase, subjects ?? []) : null;
   // 위험한 과목부터. 위험도가 같으면 시험일 순서(조회 순서)를 유지한다.
   const cards = (subjects ?? [])
     .map((s) => ({ ...s, weather: studyWeather(s) }))
@@ -84,6 +87,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               </MascotSays>
             </section>
           )}
+
+          {game && <PetPanel {...game} />}
 
           {recommendations.length > 0 && (
             <section className="flex flex-col gap-3">
