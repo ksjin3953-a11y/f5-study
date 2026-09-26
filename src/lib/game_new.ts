@@ -4,7 +4,7 @@
 import { isDone } from "@/lib/weather_new";
 
 export const FOODS = {
-  insect: { name: "곤충", image: "/food-insect_new.png", xp: 15, how: "단원 완료" },
+  insect: { name: "곤충", image: "/food-insect_new.png", xp: 20, how: "단원 완료" },
   pinecone: { name: "솔방울", image: "/food-pinecone_new.png", xp: 15, how: "퀴즈 통과" },
   wood: { name: "나무 조각", image: "/food-wood_new.png", xp: 5, how: "학습 기록" },
 } as const;
@@ -132,15 +132,15 @@ export function nextStage(level: number): Stage | null {
   return STAGES.find((s) => s.minLevel > level) ?? null;
 }
 
-// 레벨마다 필요한 경험치가 20씩 늘어난다(30, 50, 70, ...).
+// 레벨마다 필요한 경험치가 30씩 늘어난다(50, 80, 110, ...).
 export function levelFromXp(xp: number) {
   let level = 1;
-  let need = 30;
+  let need = 50;
   let rest = xp;
   while (rest >= need) {
     rest -= need;
     level++;
-    need += 20;
+    need += 30;
   }
   return { level, current: rest, need };
 }
