@@ -3,6 +3,7 @@
 
 import { daysUntil, isDone, needsReview, studyWeather } from "@/lib/weather_new";
 import { buildPlan } from "@/lib/plan_new";
+import { isFading } from "@/lib/memory_new";
 
 const MAX_SUBJECTS = 3;
 
@@ -13,6 +14,7 @@ type UnitLike = {
   position: number;
   completed_at: string | null;
   quiz_results?: { passed: boolean; created_at: string }[];
+  study_logs?: { studied_at?: string }[];
 };
 
 type SubjectLike = {
@@ -50,7 +52,7 @@ export function recommendToday(subjects: SubjectLike[]): TodayRecommendations {
       const planned = new Set(entry.units.filter((u) => !u.done).map((u) => u.id));
       const units = s.units
         .filter((u) => planned.has(u.id))
-        .map((u) => ({ ...u, review: needsReview(u) }))
+        .map((u) => ({ ...u, review: needsReview(u) || isFading(u) }))
         .sort(
           (a, b) =>
             [...planned].indexOf(a.id) - [...planned].indexOf(b.id)
@@ -62,7 +64,9 @@ export function recommendToday(subjects: SubjectLike[]): TodayRecommendations {
       const reason =
         daysLeft === 0
           ? `오늘 시험 · 남은 ${remaining}단원`
-          : `D-${daysLeft} · 오늘 ${units.length}단원 (남은 ${remaining}단원)`;
+          : remaining === 0
+            ? `D-${daysLeft} · 다 끝냈어요, 오늘은 복습 ${units.length}단원`
+            : `D-${daysLeft} · 오늘 ${units.length}단원 (남은 ${remaining}단원)`;
       return [
         {
           urgency: remaining / Math.max(daysLeft, 1),

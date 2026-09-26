@@ -12,6 +12,7 @@ import { daysUntil, isDone, needsReview, studyWeather } from "@/lib/weather_new"
 import { DDayBadge } from "@/components/dday-badge_new";
 import { HawkTaunt } from "@/components/hawk-taunt_new";
 import { lastStudyAt, petNameOf } from "@/lib/game_new";
+import { isFading, memoryOf } from "@/lib/memory_new";
 import { deleteUnit, setUnitStatus, type UnitStatus } from "@/app/unit-actions_new";
 
 const STATUSES: { value: UnitStatus; label: string }[] = [
@@ -68,18 +69,27 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
     );
     const latestQuiz = quizzes[0];
     const review = needsReview(u);
+    const memory = memoryOf(u);
+    const fading = memory?.fading ?? false;
     return (
       <li
         key={u.id}
         className={`flex flex-col gap-2 rounded-2xl border px-4 py-3 ${
-          review ? "border-violet-300 bg-violet-50" : "border-zinc-200"
+          review
+            ? "border-violet-300 bg-violet-50"
+            : fading
+              ? "border-amber-300 bg-amber-50"
+              : "border-zinc-200"
         }`}
+        // 기억이 옅어질수록 카드도 흐려진다(완료한 단원만)
+        style={memory && !fading ? { opacity: 0.55 + (0.45 * memory.percent) / 100 } : undefined}
       >
         <div className="flex items-start justify-between gap-3">
           <span
-            className={`font-medium ${isDone(u) ? "text-zinc-400 line-through" : ""}`}
+            className={`font-medium ${isDone(u) && !fading ? "text-zinc-400 line-through" : ""}`}
           >
             {review && <span className="mr-1 text-xs text-violet-600">복습 필요</span>}
+            {fading && <span className="mr-1 text-xs text-amber-700">🧠 복습할 때</span>}
             {u.title}
           </span>
           <form action={deleteUnit.bind(null, u.id)}>
@@ -107,6 +117,28 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
             </form>
           ))}
         </div>
+        {memory && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className={`shrink-0 font-semibold ${fading ? "text-amber-700" : "text-zinc-600"}`}>
+              🧠 기억 {memory.percent}%
+            </span>
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
+              <span
+                className={`block h-full rounded-full ${fading ? "bg-amber-500" : "bg-emerald-500"}`}
+                style={{ width: `${memory.percent}%` }}
+              />
+            </span>
+            <span className="shrink-0 text-zinc-500">
+              {fading
+                ? "AI 퀴즈로 되살려요"
+                : `복습 ${new Date(memory.reviewAt).toLocaleDateString("ko-KR", {
+                    timeZone: "Asia/Seoul",
+                    month: "numeric",
+                    day: "numeric",
+                  })}`}
+            </span>
+          </div>
+        )}
         {(logs.length > 0 || latestQuiz) && (
           <p className="text-sm text-zinc-500">
             {[
@@ -155,9 +187,10 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
       </li>
     );
   };
-  const activeUnits = units?.filter((u) => !isDone(u)) ?? [];
+  // 기억이 옅어진 단원은 끝냈어도 할 단원 목록으로 올려 복습하게 한다.
+  const activeUnits = units?.filter((u) => !isDone(u) || isFading(u)) ?? [];
   const lastStudy = lastStudyAt(units ?? []);
-  const doneUnits = units?.filter(isDone) ?? [];
+  const doneUnits = units?.filter((u) => isDone(u) && !isFading(u)) ?? [];
 
   return (
     <main className="page-card flex flex-1 flex-col gap-8 px-6 py-10">

@@ -14,6 +14,8 @@ type Phase =
       picks: number[];
       score: number;
       passed: boolean;
+      wasDone: boolean;
+      nextReviewDays?: number;
       saveError: string | null;
     };
 
@@ -41,7 +43,17 @@ export function Quiz({ unitId }: { unitId: string }) {
     startTransition(async () => {
       const score = questions.filter((q, i) => q.answer === picks[i]).length;
       const res = await submitQuiz(unitId, score);
-      setPhase({ step: "graded", questions, sources, picks, score, passed: res.passed && !res.error, saveError: res.error });
+      setPhase({
+        step: "graded",
+        questions,
+        sources,
+        picks,
+        score,
+        passed: res.passed && !res.error,
+        wasDone: !!res.wasDone,
+        nextReviewDays: res.nextReviewDays,
+        saveError: res.error,
+      });
     });
 
   if (phase.step === "idle") {
@@ -140,7 +152,9 @@ export function Quiz({ unitId }: { unitId: string }) {
             </span>
             <br />
             {phase.passed
-              ? "단원을 완료했어요. 솔방울 하나 받았어요!"
+              ? `${phase.wasDone ? "기억을 100%로 되살렸어요." : "단원을 완료했어요."} 솔방울 하나 받았어요!${
+                  phase.nextReviewDays ? ` 🧠 다음 복습은 ${phase.nextReviewDays}일 뒤예요.` : ""
+                }`
               : "3개 이상 맞히면 통과예요. 틀린 문제 해설을 보고 다시 도전해요."}
           </MascotSays>
           {phase.saveError && <p className="text-sm text-red-600">{phase.saveError}</p>}

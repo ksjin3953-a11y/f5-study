@@ -4,6 +4,7 @@
 // 주말은 평일보다 가볍게 배정한다. 단, 시험 전 일주일은 주말도 평일처럼 공부한다.
 
 import { daysUntil, isDone, needsReview, todayInSeoul } from "@/lib/weather_new";
+import { isFading } from "@/lib/memory_new";
 
 const DAY = 86_400_000;
 const WEEKEND_WEIGHT = 0.3; // 주말 배정량(평일 = 1). 양이 적으면 주말은 아예 쉬게 된다.
@@ -19,6 +20,7 @@ type UnitLike = {
   position: number;
   completed_at: string | null;
   quiz_results?: { passed: boolean; created_at: string }[];
+  study_logs?: { studied_at?: string }[];
 };
 
 type SubjectLike = { id: string; name: string; exam_date: string | null; units: UnitLike[] };
@@ -64,12 +66,26 @@ export function buildPlan(subjects: SubjectLike[]): Plan {
     (plan.exams[s.exam_date] ??= []).push(base);
     if (daysLeft < 0) return;
 
+    // 계획에 넣을 단원: 안 끝낸 단원 + 기억이 옅어진 단원(복습) + 오늘 끝냈거나 오늘 퀴즈로 복습한 단원(✅)
+    const doneToday = (u: UnitLike) =>
+      isDone(u) &&
+      !isFading(u) &&
+      ((!!u.completed_at && seoulDate(u.completed_at) === today) ||
+        !!u.quiz_results?.some((q) => q.passed && seoulDate(q.created_at) === today));
+
     // 오늘 끝낸 단원 → 하는 중 → 복습 → 목차 순서 (오늘의 추천과 같은 순서)
     const rank = (u: PlanItem & { status: string }) =>
       u.done ? 0 : u.status === "doing" ? 1 : u.review ? 2 : 3;
     const items = s.units
-      .filter((u) => !isDone(u) || (u.completed_at && seoulDate(u.completed_at) === today))
-      .map((u) => ({ id: u.id, title: u.title, status: u.status, position: u.position, done: isDone(u), review: needsReview(u) }))
+      .filter((u) => !isDone(u) || isFading(u) || doneToday(u))
+      .map((u) => ({
+        id: u.id,
+        title: u.title,
+        status: u.status,
+        position: u.position,
+        done: doneToday(u),
+        review: needsReview(u) || isFading(u),
+      }))
       .sort((a, b) => rank(a) - rank(b) || a.position - b.position);
     if (!items.some((u) => !u.done)) return; // 남은 단원이 없으면 계획도 없다
 

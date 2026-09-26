@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server_new";
 import { GeminiError, generateJson, type GeminiFile } from "@/lib/gemini_new";
 import { geminiFileFor, type MaterialRow } from "@/lib/materials_new";
 import { QUIZ_PASS_RATIO } from "@/lib/weather_new";
+import { halfLifeDays } from "@/lib/memory_new";
 
 export type QuizQuestion = {
   question: string;
@@ -158,7 +159,7 @@ export async function makeQuiz(
 export async function submitQuiz(
   unitId: string,
   score: number
-): Promise<{ error: string | null; passed: boolean }> {
+): Promise<{ error: string | null; passed: boolean; wasDone?: boolean; nextReviewDays?: number }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -171,7 +172,7 @@ export async function submitQuiz(
 
   const { data: unit } = await supabase
     .from("units")
-    .select("id, status")
+    .select("id, status, quiz_results(passed, created_at)")
     .eq("id", unitId)
     .maybeSingle();
   if (!unit) return { error: "단원을 찾을 수 없어요.", passed: false };
@@ -196,5 +197,9 @@ export async function submitQuiz(
   }
 
   refresh();
-  return { error: null, passed };
+  // 통과하면 반감기가 두 배가 된다(망각 곡선). 다음 복습은 새 반감기 뒤.
+  const nextReviewDays = passed
+    ? halfLifeDays({ ...unit, completed_at: null, quiz_results: [...unit.quiz_results, { passed, created_at: "" }] })
+    : undefined;
+  return { error: null, passed, wasDone: unit.status === "done", nextReviewDays };
 }

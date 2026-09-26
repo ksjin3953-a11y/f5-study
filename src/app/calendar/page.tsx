@@ -14,7 +14,7 @@ export default async function CalendarPage() {
   const { data: subjects } = await supabase
     .from("subjects")
     .select(
-      "id, name, exam_date, units(id, title, status, position, completed_at, quiz_results(passed, created_at))"
+      "id, name, exam_date, units(id, title, status, position, completed_at, quiz_results(passed, created_at), study_logs(studied_at))"
     )
     .order("exam_date", { ascending: true, nullsFirst: false });
   const list = subjects ?? [];
