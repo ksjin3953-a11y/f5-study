@@ -37,7 +37,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         )
         .order("exam_date", { ascending: true, nullsFirst: false })
     : { data: null };
-  const recommendations = recommendToday(subjects ?? []);
+  const { recommendations, status: todayStatus, light: todayLight } = recommendToday(subjects ?? []);
   const petName = petNameOf(user);
   const game = user ? await loadGameState(supabase, subjects ?? []) : null;
   // 위험한 과목부터. 위험도가 같으면 시험일 순서(조회 순서)를 유지한다.
@@ -81,26 +81,53 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {user ? (
         <>
+          <Link
+            href="/calendar"
+            className="flex h-11 items-center justify-center gap-2 rounded-full bg-sky-600 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-500"
+          >
+            📅 공부 캘린더 · 하루에 뭘 얼마나 할지 보기
+          </Link>
+
           {game && <PetPanel petName={petName} forecast={futureMe} {...game} />}
 
-          <HawkTaunt
-            key={lastStudy ?? "never"}
-            lastStudyAt={lastStudy}
-            petName={petName}
-            target={
-              tauntTarget && {
-                subjectId: tauntTarget.id,
-                subjectName: tauntTarget.name,
-                daysLeft: tauntTarget.exam_date ? daysUntil(tauntTarget.exam_date) : null,
-                remaining: tauntTarget.units.filter((u) => !isDone(u)).length,
+          {/* 주말 쉬는 날이나 오늘 몫을 다 끝낸 날에는 매가 도발하지 않는다 */}
+          {todayStatus !== "rest" && todayStatus !== "done" && (
+            <HawkTaunt
+              key={lastStudy ?? "never"}
+              lastStudyAt={lastStudy}
+              petName={petName}
+              target={
+                tauntTarget && {
+                  subjectId: tauntTarget.id,
+                  subjectName: tauntTarget.name,
+                  daysLeft: tauntTarget.exam_date ? daysUntil(tauntTarget.exam_date) : null,
+                  remaining: tauntTarget.units.filter((u) => !isDone(u)).length,
+                }
               }
-            }
-            studyHref={tauntTarget ? `/subjects/${tauntTarget.id}` : undefined}
-          />
+              studyHref={tauntTarget ? `/subjects/${tauntTarget.id}` : undefined}
+            />
+          )}
+
+          {(todayStatus === "rest" || todayStatus === "done") && (
+            <section className="flex flex-col gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
+              <h2 className="font-semibold">오늘의 추천 공부</h2>
+              <p className="text-sm text-emerald-800">
+                {todayStatus === "rest"
+                  ? "🌿 주말이라 오늘은 쉬는 날이에요. 푹 쉬고 월요일에 다시 달려요!"
+                  : "🎉 오늘 몫을 다 끝냈어요! 남은 건 캘린더에 나눠 뒀으니 편하게 쉬어요."}
+              </p>
+              <Link href="/calendar" className="text-sm font-medium text-emerald-700 hover:underline">
+                📅 이번 주 계획 보기 →
+              </Link>
+            </section>
+          )}
 
           {recommendations.length > 0 && (
             <section className="flex flex-col gap-3">
-              <h2 className="font-semibold">오늘의 추천 공부</h2>
+              <h2 className="font-semibold">
+                오늘의 추천 공부
+                {todayLight && <span className="ml-1 text-sm font-normal text-emerald-700">🌿 주말이라 가볍게</span>}
+              </h2>
               <ul className="flex flex-col gap-3">
                 {recommendations.map((r) => (
                   <li
