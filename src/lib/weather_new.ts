@@ -109,3 +109,25 @@ export function studyWeather(subject: {
   if (ratio >= 0.5) return { icon: "🌧️", label: "비", detail: `${forecast} ${need}`, tone: "rainy", risk: 5, forecast: fc };
   return { icon: "⛈️", label: "폭풍", detail: `${forecast} ${need}`, tone: "stormy", risk: 6, forecast: fc };
 }
+
+// 대시보드 맨 위 전체 날씨: 가장 위험한 과목의 날씨를 대표로 하고, 과목별 날씨 개수를 함께 보여 준다.
+export function overallWeather(subjects: { name: string; weather: Weather }[]) {
+  const worst = [...subjects].sort((a, b) => b.weather.risk - a.weather.risk)[0];
+  if (!worst) return null;
+
+  const counts = new Map<string, number>();
+  for (const s of subjects) counts.set(s.weather.icon, (counts.get(s.weather.icon) ?? 0) + 1);
+  const summary = [...counts].map(([icon, n]) => `${icon}${n}`).join(" · ");
+
+  const name = worst.name;
+  const message: Record<Weather["tone"], string> = {
+    stormy: `⛈️ 폭풍 경보! ${name} 쪽이 제일 험해요. 오늘은 ${name}부터 챙겨요.`,
+    rainy: `🌧️ 비 소식이 있어요. ${name}부터 우산 챙기듯 공부해 두면 금방 개요.`,
+    cloudy: `⛅ 대체로 구름이에요. ${name}만 조금 더 밀면 전부 맑아져요.`,
+    sunny: "☀️ 전 과목 맑음! 이 페이스 그대로만 가요.",
+    none: worst.weather.forecast
+      ? "🌫️ 아직 관측 중이에요. 단원을 하나 끝내면 예보가 시작돼요."
+      : `${worst.weather.icon} ${worst.weather.detail}`,
+  };
+  return { tone: worst.weather.tone, message: message[worst.weather.tone], summary };
+}

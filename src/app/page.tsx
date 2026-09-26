@@ -4,7 +4,7 @@ import { LoginButton, LogoutButton } from "@/components/auth-buttons_new";
 import { SubjectForm } from "@/components/subject-form_new";
 import { deleteSubject } from "@/app/subject-actions_new";
 import { setUnitStatus } from "@/app/unit-actions_new";
-import { daysUntil, isDone, studyWeather, type Weather } from "@/lib/weather_new";
+import { daysUntil, isDone, overallWeather, studyWeather, type Weather } from "@/lib/weather_new";
 import { DDayBadge } from "@/components/dday-badge_new";
 import { recommendToday } from "@/lib/recommend_new";
 import { futureMeMessage } from "@/lib/future-me_new";
@@ -44,6 +44,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const cards = (subjects ?? [])
     .map((s) => ({ ...s, weather: studyWeather(s) }))
     .sort((a, b) => b.weather.risk - a.weather.risk);
+
+  const overall = overallWeather(cards);
 
   // "시험 날의 나": 예보가 있는 과목 중 가장 위험한 과목에 대해 말한다.
   const focus = cards.find((c) => c.weather.forecast);
@@ -175,6 +177,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
           <section className="flex flex-col gap-3">
             <h2 className="font-semibold">오늘의 학습 날씨</h2>
+            {overall && (
+              <MascotSays mood={overall.tone}>
+                {overall.message}
+                <span className="mt-0.5 block text-xs text-zinc-500">{overall.summary}</span>
+              </MascotSays>
+            )}
             {subjects && subjects.length > 0 ? (
               <ul className="flex flex-col gap-3">
                 {cards.map((s) => {
@@ -224,9 +232,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                           </form>
                         </div>
                       </div>
-                      <MascotSays size="sm" mood={weather.tone}>
+                      <p className="w-fit rounded-2xl rounded-tl-sm bg-white/80 px-3 py-2 text-sm leading-relaxed text-zinc-700 ring-1 ring-black/5">
                         {weather.detail}
-                      </MascotSays>
+                      </p>
                     </li>
                   );
                 })}
