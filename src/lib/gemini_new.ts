@@ -20,11 +20,12 @@ export class GeminiError extends Error {
 
 export type GeminiFile = { uri: string; mimeType: string };
 
-// 프롬프트(+첨부 파일)를 보내고 schema 모양의 JSON을 받는다. 모양 검사는 호출하는 쪽에서 한다.
+// 프롬프트(+첨부 파일, system prompt)를 보내고 schema 모양의 JSON을 받는다. 모양 검사는 호출하는 쪽에서 한다.
 export async function generateJson(
   prompt: string,
   schema: object,
-  files: GeminiFile[] = []
+  files: GeminiFile[] = [],
+  system?: string
 ): Promise<unknown> {
   const key = apiKey();
   const parts = [
@@ -36,7 +37,7 @@ export async function generateJson(
   for (const [i, model] of MODELS.entries()) {
     if (i > 0 && model === MODELS[i - 1]) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     try {
-      return await callModel(model, key, parts, schema);
+      return await callModel(model, key, parts, schema, system);
     } catch (e) {
       lastError = e;
       const retryable =
@@ -95,11 +96,12 @@ function apiKey() {
   return key;
 }
 
-async function callModel(model: string, key: string, parts: object[], schema: object) {
+async function callModel(model: string, key: string, parts: object[], schema: object, system?: string) {
   const res = await fetch(`${API}/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
+      ...(system && { systemInstruction: { parts: [{ text: system }] } }),
       contents: [{ parts }],
       generationConfig: { responseMimeType: "application/json", responseSchema: schema },
     }),

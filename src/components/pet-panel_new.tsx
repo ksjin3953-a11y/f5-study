@@ -10,14 +10,12 @@ import {
   PET_NAME_MAX,
   nextStage,
   stageForLevel,
-  josa,
   type Food,
 } from "@/lib/game_new";
-import type { FutureMeMessage } from "@/lib/future-me_new";
 
 type Props = {
   petName: string;
-  forecast: FutureMeMessage | null; // "시험 날의 나" 예보. 내 딱따구리가 말풍선으로 전한다.
+  forecast: React.ReactNode; // "시험 날의 나" 예보 말풍선(서버에서 만들어 넘긴다). 없으면 null
   ready: boolean;
   bag: Record<Food, number>;
   foods: Food[];
@@ -80,19 +78,7 @@ export function PetPanel({ petName, forecast, ready, bag, foods, xp, level, curr
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
-      {forecast && (
-        <div className="relative rounded-2xl bg-zinc-900 px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
-          <span className="mb-1 block text-xs font-semibold tracking-wide text-zinc-400">
-            📡 시험 날의 나에게서 온 예보 · {josa(petName, "이", "가")} 전해요
-          </span>
-          <span className="mr-1" aria-hidden>
-            {forecast.weather}
-          </span>
-          {forecast.message}
-          {/* 말풍선 꼬리: 아래 딱따구리를 가리킨다 */}
-          <span className="absolute -bottom-2 left-8 h-4 w-4 rotate-45 bg-zinc-900" aria-hidden />
-        </div>
-      )}
+      {forecast}
       <div className="flex items-center gap-4">
         <div className="relative flex h-[104px] w-[76px] shrink-0 items-end justify-center">
           <Image

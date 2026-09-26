@@ -4,10 +4,19 @@ import { LoginButton, LogoutButton } from "@/components/auth-buttons_new";
 import { SubjectForm } from "@/components/subject-form_new";
 import { deleteSubject } from "@/app/subject-actions_new";
 import { setUnitStatus } from "@/app/unit-actions_new";
-import { daysUntil, isDone, overallWeather, studyWeather, type Weather } from "@/lib/weather_new";
+import {
+  dateInSeoul,
+  daysUntil,
+  isDone,
+  overallWeather,
+  studyWeather,
+  todayInSeoul,
+  type Weather,
+} from "@/lib/weather_new";
 import { DDayBadge } from "@/components/dday-badge_new";
 import { recommendToday } from "@/lib/recommend_new";
-import { futureMeMessage } from "@/lib/future-me_new";
+import { Suspense } from "react";
+import { FutureMeBubble, FutureMeLoading } from "@/components/future-me-bubble_new";
 import { MascotSays } from "@/components/mascot_new";
 import { PetPanel } from "@/components/pet-panel_new";
 import { loadGameState } from "@/lib/game-state_new";
@@ -52,18 +61,29 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   // 매 도발: 가장 위험한 과목을 들먹인다.
   const tauntTarget = focus ?? cards[0] ?? null;
   const lastStudy = lastStudyAt((subjects ?? []).flatMap((s) => s.units));
-  const futureMe = focus
-    ? futureMeMessage({
-        subjectName: focus.name,
-        weather: focus.weather,
-        nextUnitTitle:
-          recommendations.find((r) => r.subjectId === focus.id)?.units[0]?.title ??
-          focus.units
-            .filter((u) => !isDone(u))
-            .sort((a, b) => a.position - b.position)[0]?.title ??
-          null,
-      })
+  // 마지막으로 공부한 날부터 오늘까지 지난 날 수(한국 날짜 기준). 기록이 없으면 null.
+  const daysSinceStudy = lastStudy
+    ? Math.round((Date.parse(todayInSeoul()) - Date.parse(dateInSeoul(lastStudy))) / 86_400_000)
     : null;
+  // 예보는 오늘 아직 공부하지 않았을 때(마지막 학습 후 1일 이상, 또는 기록 없음)만 보여 준다.
+  const futureMe =
+    focus && (daysSinceStudy === null || daysSinceStudy >= 1) ? (
+      <Suspense fallback={<FutureMeLoading petName={petName} />}>
+        <FutureMeBubble
+          petName={petName}
+          subjectName={focus.name}
+          weather={focus.weather}
+          nextUnitTitle={
+            recommendations.find((r) => r.subjectId === focus.id)?.units[0]?.title ??
+            focus.units
+              .filter((u) => !isDone(u))
+              .sort((a, b) => a.position - b.position)[0]?.title ??
+            null
+          }
+          daysSinceStudy={daysSinceStudy}
+        />
+      </Suspense>
+    ) : null;
 
   return (
     <main

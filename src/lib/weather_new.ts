@@ -34,6 +34,11 @@ export function todayInSeoul() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 }
 
+// 시각(ISO)을 한국 날짜 YYYY-MM-DD로
+export function dateInSeoul(iso: string) {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+}
+
 // 오늘부터 시험일까지 남은 날 수
 export function daysUntil(examDate: string) {
   return Math.round((Date.parse(examDate) - Date.parse(todayInSeoul())) / DAY);

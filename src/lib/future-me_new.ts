@@ -1,5 +1,5 @@
-// "시험 날의 나" 캐스터 멘트. 지금은 규칙 기반 기본 문구이고,
-// 나중에 LLM이 같은 { weather, message } 형태로 대신 써 준다.
+// "시험 날의 나" 캐스터 멘트의 규칙 기반 문구. 평소에는 Gemini가 쓰고(future-me-llm_new.ts),
+// 실패하면 이 문구를 대신 쓴다.
 // 숫자는 날씨 계산 결과만 쓰고 여기서 새로 계산하지 않는다(하루 필요 단원 수만 나눗셈).
 
 import type { Weather } from "@/lib/weather_new";

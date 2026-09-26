@@ -17,6 +17,27 @@ export type QuizQuestion = {
 const QUESTION_COUNT = 5;
 const CHOICE_COUNT = 4;
 const MAX_MATERIALS = 3; // 한 번에 읽힐 강의자료 수(최근 것부터)
+const MAX_MEMOS = 5; // 프롬프트에 넣을 학습 메모 수(최근 것부터)
+
+// 출제자 말투·규칙(팀에서 준비한 프롬프트). 받은 보기는 서버가 한 번 더 섞는다.
+const SYSTEM = `너는 대학 강의 퀴즈 출제자인데 텐션은 듀오링고야.
+단원 제목(및 학습 메모)을 바탕으로 4지선다 객관식 ${QUESTION_COUNT}문제를 출제해.
+근거 자료가 부족하면 해당 분야 통용 개념 위주로 출제해.
+문제/보기는 장난치지 말고 학술적으로 정확하게 써.
+explanation(해설)에서만 캐주얼하고 재치있는 말투 써도 돼 —
+정답 여부와 이유는 한 줄로 명확하게 먼저 말하고, 그다음에 재치 한마디.
+해설에서 정답을 보기 번호(1번, 2번…)로 가리키지 말고 정답 보기 내용을 그대로 말해.
+반드시 JSON으로만 답해.
+
+출력 예시
+{ "questions": [
+  {
+    "question": "스택(Stack)의 자료 처리 방식으로 옳은 것은?",
+    "choices": ["FIFO", "LIFO", "랜덤", "우선순위"],
+    "answerIndex": 1,
+    "explanation": "정답은 LIFO. 마지막에 넣은 접시부터 빼 먹는 거랑 똑같음 🍽️ 이거 놓치면 다음 문제도 도미노로 틀려요."
+  }
+]}`;
 
 const SCHEMA = {
   type: "OBJECT",
@@ -27,37 +48,50 @@ const SCHEMA = {
         type: "OBJECT",
         properties: {
           question: { type: "STRING" },
-          correct: { type: "STRING" },
-          wrong: { type: "ARRAY", items: { type: "STRING" } },
+          choices: { type: "ARRAY", items: { type: "STRING" } },
+          answerIndex: { type: "INTEGER" },
           explanation: { type: "STRING" },
         },
-        required: ["question", "correct", "wrong", "explanation"],
+        required: ["question", "choices", "answerIndex", "explanation"],
       },
     },
   },
   required: ["questions"],
 };
 
-type Raw = { question: string; correct: string; wrong: string[]; explanation: string };
+type Raw = { question: string; choices: string[]; answerIndex: number; explanation: string };
 
+// 보기 4개(서로 다름), 정답 위치 0~3인지 확인한다.
 function isRaw(q: unknown): q is Raw {
   const r = q as Raw;
   return (
     typeof r?.question === "string" &&
-    typeof r.correct === "string" &&
     typeof r.explanation === "string" &&
-    Array.isArray(r.wrong) &&
-    r.wrong.length === CHOICE_COUNT - 1 &&
-    r.wrong.every((w) => typeof w === "string")
+    Array.isArray(r.choices) &&
+    r.choices.length === CHOICE_COUNT &&
+    r.choices.every((c) => typeof c === "string" && c.trim()) &&
+    new Set(r.choices.map((c) => c.trim())).size === CHOICE_COUNT &&
+    Number.isInteger(r.answerIndex) &&
+    r.answerIndex >= 0 &&
+    r.answerIndex < CHOICE_COUNT
   );
 }
 
-// 정답을 보기 중 아무 자리에나 넣는다. 모델이 정답을 한 자리에 몰아 두는 것을 막는다.
+// 보기를 섞고 정답 위치도 같이 옮긴다. 모델이 정답을 한 자리에 몰아 두는 것을 막는다.
+// 해설이 "2번"처럼 보기 번호를 말하면 섞었을 때 틀리므로 그 문제는 섞지 않는다.
 function toQuestion(r: Raw): QuizQuestion {
-  const answer = Math.floor(Math.random() * CHOICE_COUNT);
-  const choices = [...r.wrong];
-  choices.splice(answer, 0, r.correct);
-  return { question: r.question, choices, answer, explanation: r.explanation };
+  const order = [...r.choices.keys()];
+  const mentionsNumber = /[1-4]\s*번/.test(r.explanation);
+  for (let i = order.length - 1; i > 0 && !mentionsNumber; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return {
+    question: r.question,
+    choices: order.map((k) => r.choices[k].trim()),
+    answer: order.indexOf(r.answerIndex),
+    explanation: r.explanation,
+  };
 }
 
 // 퀴즈에 쓸 강의자료: 이 단원에 붙인 자료, 없으면 과목 전체 자료. materials 테이블이 없으면 빈 목록.
@@ -100,10 +134,15 @@ export async function makeQuiz(
   // RLS라 남의 단원은 조회되지 않는다.
   const { data: unit } = await supabase
     .from("units")
-    .select("title, subject_id")
+    .select("title, subject_id, study_logs(memo, studied_at)")
     .eq("id", unitId)
     .maybeSingle();
   if (!unit) return { error: "단원을 찾을 수 없어요." };
+  const memos = [...unit.study_logs]
+    .filter((l) => l.memo?.trim())
+    .sort((a, b) => b.studied_at.localeCompare(a.studied_at))
+    .slice(0, MAX_MEMOS)
+    .map((l) => l.memo!.trim());
   const { data: subject } = await supabase
     .from("subjects")
     .select("name")
@@ -123,23 +162,27 @@ export async function makeQuiz(
   }
 
   const prompt = [
-    `대학교 "${subject?.name ?? ""}" 과목의 "${unit.title}" 단원을 공부한 학생의 이해도를 확인하는 객관식 퀴즈 ${QUESTION_COUNT}문제를 한국어로 만들어 주세요.`,
+    `과목: ${subject?.name ?? ""}`,
+    `단원: ${unit.title}`,
+    memos.length > 0
+      ? `학습 메모(학생이 공부하며 남긴 메모야. 헷갈려 한 부분을 확인하는 문제를 섞어 줘):\n${memos
+          .map((m) => `- ${m}`)
+          .join("\n")}`
+      : "학습 메모: 없음",
+    "",
     ...(files.length > 0
       ? [
-          "- 첨부한 PDF는 이 과목의 실제 강의자료예요. 문제는 반드시 강의자료 내용을 근거로 내 주세요.",
-          `- 강의자료에 여러 단원이 섞여 있으면 "${unit.title}"에 해당하는 부분에서만 내 주세요.`,
-          "- 강의자료의 정의·기호·예제가 일반 교재와 다르면 강의자료를 따라 주세요.",
-          "- explanation 끝에 근거가 된 슬라이드 제목이나 쪽을 (근거: …) 형식으로 붙여 주세요.",
+          "첨부한 PDF는 이 과목의 실제 강의자료야. 문제는 반드시 강의자료 내용을 근거로 내 줘.",
+          `강의자료에 여러 단원이 섞여 있으면 "${unit.title}"에 해당하는 부분에서만 내 줘.`,
+          "강의자료의 정의·기호·예제가 일반 교재와 다르면 강의자료를 따라 줘.",
+          "explanation 끝에 근거가 된 슬라이드 제목이나 쪽을 (근거: …) 형식으로 붙여 줘.",
         ]
-      : []),
-    "- 용어 암기보다 개념 이해와 적용을 묻는 문제를 섞고, 난이도는 학부 중간고사 수준으로 해 주세요.",
-    `- 각 문제는 정답 1개(correct)와 그럴듯한 오답 ${CHOICE_COUNT - 1}개(wrong)를 주세요. 보기에 번호나 기호는 붙이지 마세요.`,
-    "- explanation에는 왜 그게 정답인지 1~2문장으로 설명해 주세요.",
-    "- 단원명이 모호하면 해당 과목에서 가장 일반적인 의미로 해석해 주세요.",
+      : ["강의자료는 없어. 단원명이 모호하면 이 과목에서 가장 일반적인 의미로 해석해 줘."]),
+    "용어 암기보다 개념 이해와 적용을 묻는 문제를 섞고, 난이도는 학부 중간고사 수준으로 해 줘.",
   ].join("\n");
 
   try {
-    const data = (await generateJson(prompt, SCHEMA, files)) as { questions?: unknown[] };
+    const data = (await generateJson(prompt, SCHEMA, files, SYSTEM)) as { questions?: unknown[] };
     const questions = (data.questions ?? []).filter(isRaw).slice(0, QUESTION_COUNT);
     if (questions.length < QUESTION_COUNT) {
       console.error("makeQuiz bad shape:", JSON.stringify(data).slice(0, 500));
