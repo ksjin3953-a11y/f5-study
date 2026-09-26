@@ -6,10 +6,11 @@ import { MascotSays } from "@/components/mascot_new";
 
 type Phase =
   | { step: "idle" }
-  | { step: "solving"; questions: QuizQuestion[]; picks: (number | null)[] }
+  | { step: "solving"; questions: QuizQuestion[]; sources: string[]; picks: (number | null)[] }
   | {
       step: "graded";
       questions: QuizQuestion[];
+      sources: string[];
       picks: number[];
       score: number;
       passed: boolean;
@@ -27,21 +28,27 @@ export function Quiz({ unitId }: { unitId: string }) {
       setError(null);
       const res = await makeQuiz(unitId);
       if ("error" in res) setError(res.error);
-      else setPhase({ step: "solving", questions: res.questions, picks: res.questions.map(() => null) });
+      else
+        setPhase({
+          step: "solving",
+          questions: res.questions,
+          sources: res.sources,
+          picks: res.questions.map(() => null),
+        });
     });
 
-  const grade = (questions: QuizQuestion[], picks: number[]) =>
+  const grade = (questions: QuizQuestion[], sources: string[], picks: number[]) =>
     startTransition(async () => {
       const score = questions.filter((q, i) => q.answer === picks[i]).length;
       const res = await submitQuiz(unitId, score);
-      setPhase({ step: "graded", questions, picks, score, passed: res.passed && !res.error, saveError: res.error });
+      setPhase({ step: "graded", questions, sources, picks, score, passed: res.passed && !res.error, saveError: res.error });
     });
 
   if (phase.step === "idle") {
     return (
       <div className="flex flex-col gap-2">
         {pending ? (
-          <MascotSays size="sm">문제 만드는 중이에요… 콕콕콕 🪵</MascotSays>
+          <MascotSays size="sm">문제 만드는 중이에요… 콕콕콕 🪵 (강의자료를 읽으면 30초쯤 걸려요)</MascotSays>
         ) : (
           <button
             onClick={start}
@@ -55,13 +62,22 @@ export function Quiz({ unitId }: { unitId: string }) {
     );
   }
 
-  const { questions } = phase;
+  const { questions, sources } = phase;
   const graded = phase.step === "graded";
   const picks = phase.picks;
   const allPicked = picks.every((p) => p !== null);
 
   return (
     <div className="flex flex-col gap-4">
+      <p
+        className={`rounded-lg px-3 py-1.5 text-xs ${
+          sources.length ? "bg-emerald-50 text-emerald-800" : "bg-zinc-100 text-zinc-500"
+        }`}
+      >
+        {sources.length
+          ? `📚 강의자료 기반: ${sources.join(", ")}`
+          : "📝 단원명 기반 문제예요. 강의자료를 올리면 수업 내용으로 출제해요."}
+      </p>
       {questions.map((q, i) => (
         <fieldset key={i} className="flex flex-col gap-1.5">
           <legend className="mb-1.5 font-medium text-zinc-900">
@@ -110,7 +126,7 @@ export function Quiz({ unitId }: { unitId: string }) {
 
       {phase.step === "solving" ? (
         <button
-          onClick={() => grade(questions, picks as number[])}
+          onClick={() => grade(questions, sources, picks as number[])}
           disabled={!allPicked || pending}
           className="h-9 rounded-full bg-zinc-900 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-40"
         >

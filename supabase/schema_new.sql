@@ -114,3 +114,47 @@ create policy "own check_ins" on public.check_ins
   for all to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+
+-- 강의계획서·강의자료 PDF (9/26 추가). 파일은 Storage의 materials 버킷에, 정보는 이 테이블에 둔다.
+-- gemini_uri: Gemini에 올린 파일 주소(48시간 뒤 만료되면 다시 올린다).
+create table if not exists public.materials (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  subject_id uuid not null references public.subjects (id) on delete cascade,
+  unit_id uuid references public.units (id) on delete set null,
+  kind text not null check (kind in ('syllabus', 'lecture')),
+  name text not null,
+  path text not null,
+  size int not null,
+  gemini_uri text,
+  gemini_expires_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists materials_subject_id_idx on public.materials (subject_id);
+
+grant select, insert, update, delete on public.materials to authenticated;
+
+alter table public.materials enable row level security;
+
+create policy "own materials" on public.materials
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+-- PDF 보관함: 비공개, PDF만, 파일당 50MB까지. 경로 첫 폴더가 본인 사용자 ID인 파일만 다룰 수 있다.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('materials', 'materials', false, 52428800, array['application/pdf'])
+on conflict (id) do nothing;
+
+create policy "own material files read" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'materials' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+create policy "own material files upload" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'materials' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+create policy "own material files delete" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'materials' and (storage.foldername(name))[1] = (select auth.uid())::text);

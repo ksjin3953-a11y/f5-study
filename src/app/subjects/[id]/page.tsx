@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server_new";
 import { UnitForm } from "@/components/unit-form_new";
+import { SyllabusImport } from "@/components/syllabus-import_new";
+import { Materials } from "@/components/materials_new";
 import { RecordForm } from "@/components/record-form_new";
 import { Quiz } from "@/components/quiz_new";
 import { MascotSays } from "@/components/mascot_new";
@@ -40,6 +42,15 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
     )
     .eq("subject_id", id)
     .order("position");
+
+  // 강의자료. materials 테이블이 아직 없으면(SQL 미실행) 안내만 보여 준다.
+  const { data: materials, error: materialsError } = await supabase
+    .from("materials")
+    .select("id, name, size, unit_id")
+    .eq("subject_id", id)
+    .eq("kind", "lecture")
+    .order("created_at");
+  if (materialsError) console.error("materials unavailable:", materialsError.message);
 
   const total = units?.length ?? 0;
   const done = units?.filter(isDone).length ?? 0;
@@ -220,7 +231,16 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
         )}
       </section>
 
+      <SyllabusImport subjectId={subject.id} existingCount={total} />
+
       <UnitForm subjectId={subject.id} />
+
+      <Materials
+        subjectId={subject.id}
+        units={(units ?? []).map((u) => ({ id: u.id, title: u.title }))}
+        materials={materials ?? []}
+        ready={!materialsError}
+      />
 
       <HawkTaunt
         key={lastStudy ?? "never"}

@@ -2,7 +2,8 @@
 
 import { refresh } from "next/cache";
 import { createClient } from "@/lib/supabase/server_new";
-import { GeminiError, generateJson } from "@/lib/gemini_new";
+import { GeminiError, generateJson, type GeminiFile } from "@/lib/gemini_new";
+import { geminiFileFor, type MaterialRow } from "@/lib/materials_new";
 import { QUIZ_PASS_RATIO } from "@/lib/weather_new";
 
 export type QuizQuestion = {
@@ -14,6 +15,7 @@ export type QuizQuestion = {
 
 const QUESTION_COUNT = 5;
 const CHOICE_COUNT = 4;
+const MAX_MATERIALS = 3; // 한 번에 읽힐 강의자료 수(최근 것부터)
 
 const SCHEMA = {
   type: "OBJECT",
@@ -57,10 +59,37 @@ function toQuestion(r: Raw): QuizQuestion {
   return { question: r.question, choices, answer, explanation: r.explanation };
 }
 
-// 단원 퀴즈 만들기. 모델에는 과목명과 단원명만 보낸다.
+// 퀴즈에 쓸 강의자료: 이 단원에 붙인 자료, 없으면 과목 전체 자료. materials 테이블이 없으면 빈 목록.
+async function quizMaterials(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  unitId: string,
+  subjectId: string
+): Promise<MaterialRow[]> {
+  const cols = "id, name, path, gemini_uri, gemini_expires_at";
+  const { data: forUnit } = await supabase
+    .from("materials")
+    .select(cols)
+    .eq("kind", "lecture")
+    .eq("unit_id", unitId)
+    .order("created_at", { ascending: false })
+    .limit(MAX_MATERIALS);
+  if (forUnit?.length) return forUnit;
+  const { data: forSubject } = await supabase
+    .from("materials")
+    .select(cols)
+    .eq("kind", "lecture")
+    .eq("subject_id", subjectId)
+    .is("unit_id", null)
+    .order("created_at", { ascending: false })
+    .limit(MAX_MATERIALS);
+  return forSubject ?? [];
+}
+
+// 단원 퀴즈 만들기. 강의자료가 있으면 그 내용으로, 없으면 과목명·단원명으로 출제한다.
+// sources: 출제에 쓴 강의자료 이름(비어 있으면 단원명 기반).
 export async function makeQuiz(
   unitId: string
-): Promise<{ questions: QuizQuestion[] } | { error: string }> {
+): Promise<{ questions: QuizQuestion[]; sources: string[] } | { error: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -80,8 +109,28 @@ export async function makeQuiz(
     .eq("id", unit.subject_id)
     .maybeSingle();
 
+  // 강의자료를 Gemini에 올린다. 실패한 자료는 빼고, 모두 실패하면 단원명으로 출제한다.
+  const files: GeminiFile[] = [];
+  const sources: string[] = [];
+  for (const m of await quizMaterials(supabase, unitId, unit.subject_id)) {
+    try {
+      files.push(await geminiFileFor(supabase, m));
+      sources.push(m.name);
+    } catch (e) {
+      console.error("quiz material skipped:", m.name, e);
+    }
+  }
+
   const prompt = [
     `대학교 "${subject?.name ?? ""}" 과목의 "${unit.title}" 단원을 공부한 학생의 이해도를 확인하는 객관식 퀴즈 ${QUESTION_COUNT}문제를 한국어로 만들어 주세요.`,
+    ...(files.length > 0
+      ? [
+          "- 첨부한 PDF는 이 과목의 실제 강의자료예요. 문제는 반드시 강의자료 내용을 근거로 내 주세요.",
+          `- 강의자료에 여러 단원이 섞여 있으면 "${unit.title}"에 해당하는 부분에서만 내 주세요.`,
+          "- 강의자료의 정의·기호·예제가 일반 교재와 다르면 강의자료를 따라 주세요.",
+          "- explanation 끝에 근거가 된 슬라이드 제목이나 쪽을 (근거: …) 형식으로 붙여 주세요.",
+        ]
+      : []),
     "- 용어 암기보다 개념 이해와 적용을 묻는 문제를 섞고, 난이도는 학부 중간고사 수준으로 해 주세요.",
     `- 각 문제는 정답 1개(correct)와 그럴듯한 오답 ${CHOICE_COUNT - 1}개(wrong)를 주세요. 보기에 번호나 기호는 붙이지 마세요.`,
     "- explanation에는 왜 그게 정답인지 1~2문장으로 설명해 주세요.",
@@ -89,13 +138,13 @@ export async function makeQuiz(
   ].join("\n");
 
   try {
-    const data = (await generateJson(prompt, SCHEMA)) as { questions?: unknown[] };
+    const data = (await generateJson(prompt, SCHEMA, files)) as { questions?: unknown[] };
     const questions = (data.questions ?? []).filter(isRaw).slice(0, QUESTION_COUNT);
     if (questions.length < QUESTION_COUNT) {
       console.error("makeQuiz bad shape:", JSON.stringify(data).slice(0, 500));
       return { error: "문제를 제대로 만들지 못했어요. 다시 시도해 주세요." };
     }
-    return { questions: questions.map(toQuestion) };
+    return { questions: questions.map(toQuestion), sources };
   } catch (e) {
     console.error("makeQuiz failed:", e);
     if (e instanceof GeminiError && e.rateLimited) {
