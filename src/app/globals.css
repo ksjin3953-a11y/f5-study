@@ -13,9 +13,41 @@
 }
 
 body {
-  background: var(--background);
+  background: #bfe4fb;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 배경: 파란 하늘 + 아래쪽 숲. 스크롤해도 제자리에 있도록 고정 레이어로 깐다. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    url("/forest_new.svg") repeat-x left bottom / 400px 180px,
+    radial-gradient(ellipse 90px 28px at 18% 16%, #fff 60%, transparent 62%),
+    radial-gradient(ellipse 60px 20px at 24% 13%, #fff 60%, transparent 62%),
+    radial-gradient(ellipse 110px 30px at 82% 26%, #fff 60%, transparent 62%),
+    radial-gradient(ellipse 70px 22px at 76% 23%, #fff 60%, transparent 62%),
+    linear-gradient(#5fb4ee, #a9dcfa 55%, #d9f1ff);
+}
+
+/* 내용은 하늘 위에 뜬 반투명 흰 카드에 올린다. */
+.page-card {
+  margin: 1.25rem 0.75rem 3rem;
+  width: auto;
+  max-width: 28rem;
+  border-radius: 1.75rem;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 12px 40px rgb(15 60 100 / 0.18);
+  backdrop-filter: blur(6px);
+}
+@media (min-width: 30rem) {
+  .page-card {
+    margin: 2rem auto 3rem;
+    width: 100%;
+  }
 }
 
 /* ── 마스코트 날씨 연출 ───────────────────────────── */
@@ -142,6 +174,30 @@ body {
   100% { transform: scale(1, 1); }
 }
 
+/* 알: 좌우로 흔들흔들, 가끔 크게 들썩 */
+.pet-egg-wobble {
+  transform-origin: 50% 100%;
+  animation: pet-egg-wobble 2.4s ease-in-out infinite;
+}
+@keyframes pet-egg-wobble {
+  0%, 55%, 100% { transform: rotate(0deg); }
+  62% { transform: rotate(-7deg); }
+  70% { transform: rotate(6deg); }
+  78% { transform: rotate(-4deg); }
+  86% { transform: rotate(2deg); }
+}
+
+/* 성장했을 때: 반짝이며 커진다 */
+.pet-grow {
+  transform-origin: 50% 100%;
+  animation: pet-grow 1.2s ease-out;
+}
+@keyframes pet-grow {
+  0% { transform: scale(0.6); filter: brightness(2.2); opacity: 0.4; }
+  50% { transform: scale(1.12); filter: brightness(1.4); opacity: 1; }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
 .pet-xp-float {
   animation: pet-xp-float 1.3s ease-out forwards;
 }
@@ -163,6 +219,15 @@ body {
 }
 
 /* ── 보스(매) ───────────────────────────── */
+
+/* 도발하러 아래에서 휙 날아든다 */
+.hawk-swoop {
+  animation: hawk-swoop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes hawk-swoop {
+  0% { transform: translateY(120%) rotate(-3deg); opacity: 0; }
+  100% { transform: translateY(0) rotate(0); opacity: 1; }
+}
 
 .boss-hover {
   animation: boss-hover 2.4s ease-in-out infinite;

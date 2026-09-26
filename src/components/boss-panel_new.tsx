@@ -107,7 +107,7 @@ export function BossPanel({
         ? "시험일을 정하면 보스가 언제 오는지 알려드려요."
         : daysLeft === 0
           ? "오늘 보스가 왔어요!"
-          : `보스 도착까지 D-${daysLeft} · 단원을 하나 끝낼 때마다 HP ${HP_PER_UNIT.toLocaleString("en-US")}씩 깎여요.`;
+          : `시험 날 보스가 와요. 단원을 하나 끝낼 때마다 HP ${HP_PER_UNIT.toLocaleString("en-US")}씩 깎여요.`;
 
   return (
     <section className="flex flex-col gap-2">

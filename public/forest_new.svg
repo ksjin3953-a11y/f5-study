@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 180" preserveAspectRatio="none">
+  <!-- 가로로 반복되는 숲. 양 끝 높이를 맞춰 이어 붙여도 자연스럽다. -->
+  <!-- 먼 언덕 -->
+  <path d="M0 110 C60 80 120 95 200 88 C280 80 340 96 400 110 V180 H0 Z" fill="#9fd6a8"/>
+  <!-- 뒤쪽 뾰족한 나무 -->
+  <g fill="#5fae76">
+    <path d="M18 120 L34 62 L50 120 Z"/>
+    <path d="M70 118 L90 48 L110 118 Z"/>
+    <path d="M150 120 L166 70 L182 120 Z"/>
+    <path d="M225 118 L247 44 L269 118 Z"/>
+    <path d="M300 120 L316 66 L332 120 Z"/>
+    <path d="M352 118 L372 54 L392 118 Z"/>
+  </g>
+  <!-- 앞쪽 둥근 나무 -->
+  <g fill="#8a5a3b">
+    <rect x="44" y="120" width="8" height="30"/>
+    <rect x="126" y="124" width="8" height="28"/>
+    <rect x="200" y="118" width="9" height="32"/>
+    <rect x="276" y="124" width="8" height="28"/>
+    <rect x="350" y="120" width="8" height="30"/>
+  </g>
+  <g fill="#3f8f5a">
+    <circle cx="48" cy="112" r="20"/><circle cx="36" cy="120" r="13"/><circle cx="61" cy="121" r="13"/>
+    <circle cx="130" cy="118" r="17"/><circle cx="119" cy="125" r="11"/><circle cx="142" cy="126" r="11"/>
+    <circle cx="204" cy="108" r="23"/><circle cx="189" cy="118" r="14"/><circle cx="220" cy="119" r="14"/>
+    <circle cx="280" cy="118" r="17"/><circle cx="268" cy="126" r="11"/><circle cx="292" cy="126" r="11"/>
+    <circle cx="354" cy="112" r="20"/><circle cx="342" cy="120" r="13"/><circle cx="367" cy="121" r="13"/>
+  </g>
+  <!-- 땅 -->
+  <path d="M0 146 C80 138 150 150 200 144 C260 138 330 150 400 146 V180 H0 Z" fill="#2f7a4a"/>
+</svg>

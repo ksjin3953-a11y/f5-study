@@ -2,10 +2,9 @@
 
 import { refresh } from "next/cache";
 import { createClient } from "@/lib/supabase/server_new";
+import { QUIZ_PASS_RATIO } from "@/lib/weather_new";
 
 export type RecordFormState = { error: string | null; savedAt: number | null };
-
-const PASS_RATIO = 0.7; // 퀴즈 통과 기준
 
 // 학습 기록 남기기. 퀴즈 점수를 함께 적으면 퀴즈 결과도 저장한다.
 export async function createRecord(
@@ -60,7 +59,7 @@ export async function createRecord(
       unit_id: unitId,
       score: quiz.score,
       total: quiz.total,
-      passed: quiz.score / quiz.total >= PASS_RATIO,
+      passed: quiz.score / quiz.total >= QUIZ_PASS_RATIO,
     });
     if (quizError) {
       console.error("createRecord quiz_results failed:", quizError);

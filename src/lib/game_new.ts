@@ -34,6 +34,26 @@ type UnitLike = {
   study_logs?: unknown[];
 };
 
+// 마지막으로 공부한 시각(학습 기록·퀴즈·단원 완료 중 가장 최근). 매 도발 타이머의 기준이다.
+export function lastStudyAt(
+  units: {
+    completed_at: string | null;
+    quiz_results?: { created_at: string }[];
+    study_logs?: { studied_at?: string }[];
+  }[]
+) {
+  let latest: string | null = null;
+  const see = (t: string | null | undefined) => {
+    if (t && (!latest || Date.parse(t) > Date.parse(latest))) latest = t;
+  };
+  for (const u of units) {
+    see(u.completed_at);
+    u.quiz_results?.forEach((q) => see(q.created_at));
+    u.study_logs?.forEach((l) => see(l.studied_at));
+  }
+  return latest;
+}
+
 export function isFood(value: unknown): value is Food {
   return typeof value === "string" && value in FOODS;
 }
@@ -72,6 +92,44 @@ export function foodBag(earned: Record<Food, number>, fed: Record<Food, number>)
 
 export function totalXp(fed: Record<Food, number>) {
   return FOOD_KEYS.reduce((sum, k) => sum + fed[k] * FOODS[k].xp, 0);
+}
+
+export const DEFAULT_PET_NAME = "딱따구리";
+export const PET_NAME_MAX = 10;
+
+// 로그인 계정에 저장한 딱따구리 이름. 없으면 기본 이름.
+export function petNameOf(user: { user_metadata?: Record<string, unknown> } | null) {
+  const name = user?.user_metadata?.pet_name;
+  return typeof name === "string" && name.trim() ? name.trim() : DEFAULT_PET_NAME;
+}
+
+// 받침 유무로 조사를 고른다. 숫자로 끝나면 한국어 읽기(2 → 이)를 따른다.
+export function josa(word: string, withBatchim: string, withoutBatchim: string) {
+  const last = word.trim().replace(/['"]+$/, "").slice(-1); // 따옴표는 건너뛴다
+  const code = last.charCodeAt(0);
+  let batchim: boolean;
+  if (code >= 0xac00 && code <= 0xd7a3) batchim = (code - 0xac00) % 28 !== 0;
+  else if (/[0-9]/.test(last)) batchim = "013678".includes(last);
+  else batchim = false;
+  return word + (batchim ? withBatchim : withoutBatchim);
+}
+
+// 성장 단계: 레벨이 오르면 알 → 아기 → 어른 딱따구리로 자란다.
+// height는 패널에서 보여 줄 키(px). 이미지 비율은 파일 크기를 따른다.
+export const STAGES = [
+  { minLevel: 1, name: "알", image: "/mascot-egg_new.png", width: 140, height: 180, show: 76, grown: "" },
+  { minLevel: 3, name: "아기", image: "/mascot-baby_new.png", width: 179, height: 255, show: 96, grown: "부화했어요!" },
+  { minLevel: 6, name: "어른", image: "/mascot_new.png", width: 173, height: 257, show: 104, grown: "다 컸어요!" },
+] as const;
+
+export type Stage = (typeof STAGES)[number];
+
+export function stageForLevel(level: number): Stage {
+  return STAGES.findLast((s) => level >= s.minLevel) ?? STAGES[0];
+}
+
+export function nextStage(level: number): Stage | null {
+  return STAGES.find((s) => s.minLevel > level) ?? null;
 }
 
 // 레벨마다 필요한 경험치가 20씩 늘어난다(30, 50, 70, ...).

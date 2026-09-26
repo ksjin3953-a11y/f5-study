@@ -3,6 +3,7 @@
 // 숫자는 날씨 계산 결과만 쓰고 여기서 새로 계산하지 않는다(하루 필요 단원 수만 나눗셈).
 
 import type { Weather } from "@/lib/weather_new";
+import { josa } from "@/lib/game_new";
 
 export type FutureMeMessage = { weather: string; message: string };
 
@@ -11,17 +12,6 @@ type Input = {
   weather: Weather;
   nextUnitTitle: string | null; // 오늘의 추천 첫 단원
 };
-
-// 받침 유무로 조사를 고른다. 숫자로 끝나면 한국어 읽기(2 → 이)를 따른다.
-function josa(word: string, withBatchim: string, withoutBatchim: string) {
-  const last = word.trim().replace(/['"]+$/, "").slice(-1); // 따옴표는 건너뛴다
-  const code = last.charCodeAt(0);
-  let batchim: boolean;
-  if (code >= 0xac00 && code <= 0xd7a3) batchim = (code - 0xac00) % 28 !== 0;
-  else if (/[0-9]/.test(last)) batchim = "013678".includes(last);
-  else batchim = false;
-  return word + (batchim ? withBatchim : withoutBatchim);
-}
 
 // 같은 날에는 같은 문구, 날이 바뀌면 다른 문구가 나오게 고른다.
 function pick<T>(options: T[], seed: string) {

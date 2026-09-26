@@ -4,12 +4,15 @@ import { LoginButton, LogoutButton } from "@/components/auth-buttons_new";
 import { SubjectForm } from "@/components/subject-form_new";
 import { deleteSubject } from "@/app/subject-actions_new";
 import { setUnitStatus } from "@/app/unit-actions_new";
-import { dDayLabel, daysUntil, isDone, studyWeather, type Weather } from "@/lib/weather_new";
+import { daysUntil, isDone, studyWeather, type Weather } from "@/lib/weather_new";
+import { DDayBadge } from "@/components/dday-badge_new";
 import { recommendToday } from "@/lib/recommend_new";
 import { futureMeMessage } from "@/lib/future-me_new";
 import { MascotSays } from "@/components/mascot_new";
 import { PetPanel } from "@/components/pet-panel_new";
 import { loadGameState } from "@/lib/game-state_new";
+import { lastStudyAt, petNameOf } from "@/lib/game_new";
+import { HawkTaunt } from "@/components/hawk-taunt_new";
 
 const TONE_CLASS: Record<Weather["tone"], string> = {
   sunny: "border-amber-200 bg-amber-50",
@@ -30,11 +33,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     ? await supabase
         .from("subjects")
         .select(
-          "id, name, professor, exam_date, created_at, units(id, title, status, position, completed_at, quiz_results(passed, created_at), study_logs(id))"
+          "id, name, professor, exam_date, created_at, units(id, title, status, position, completed_at, quiz_results(passed, created_at), study_logs(id, studied_at))"
         )
         .order("exam_date", { ascending: true, nullsFirst: false })
     : { data: null };
   const recommendations = recommendToday(subjects ?? []);
+  const petName = petNameOf(user);
   const game = user ? await loadGameState(supabase, subjects ?? []) : null;
   // 위험한 과목부터. 위험도가 같으면 시험일 순서(조회 순서)를 유지한다.
   const cards = (subjects ?? [])
@@ -43,6 +47,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   // "시험 날의 나": 예보가 있는 과목 중 가장 위험한 과목에 대해 말한다.
   const focus = cards.find((c) => c.weather.forecast);
+  // 매 도발: 가장 위험한 과목을 들먹인다.
+  const tauntTarget = focus ?? cards[0] ?? null;
+  const lastStudy = lastStudyAt((subjects ?? []).flatMap((s) => s.units));
   const futureMe = focus
     ? futureMeMessage({
         subjectName: focus.name,
@@ -58,7 +65,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   return (
     <main
-      className={`mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-6 py-16 ${
+      className={`page-card flex flex-1 flex-col gap-8 px-6 py-10 ${
         user ? "" : "justify-center"
       }`}
     >
@@ -74,21 +81,22 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       {user ? (
         <>
-          {futureMe && (
-            <section className="flex flex-col gap-3 rounded-2xl bg-zinc-900 px-4 py-4">
-              <span className="text-xs font-semibold tracking-wide text-zinc-400">
-                📡 시험 날의 나에게서 온 예보
-              </span>
-              <MascotSays size="lg" mood={focus?.weather.tone}>
-                <span className="mr-1" aria-hidden>
-                  {futureMe.weather}
-                </span>
-                {futureMe.message}
-              </MascotSays>
-            </section>
-          )}
+          {game && <PetPanel petName={petName} forecast={futureMe} {...game} />}
 
-          {game && <PetPanel {...game} />}
+          <HawkTaunt
+            key={lastStudy ?? "never"}
+            lastStudyAt={lastStudy}
+            petName={petName}
+            target={
+              tauntTarget && {
+                subjectId: tauntTarget.id,
+                subjectName: tauntTarget.name,
+                daysLeft: tauntTarget.exam_date ? daysUntil(tauntTarget.exam_date) : null,
+                remaining: tauntTarget.units.filter((u) => !isDone(u)).length,
+              }
+            }
+            studyHref={tauntTarget ? `/subjects/${tauntTarget.id}` : undefined}
+          />
 
           {recommendations.length > 0 && (
             <section className="flex flex-col gap-3">
@@ -145,6 +153,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 {cards.map((s) => {
                   const { weather } = s;
                   const done = s.units.filter(isDone).length;
+                  const percent = s.units.length ? Math.round((done / s.units.length) * 100) : 0;
                   return (
                     <li
                       key={s.id}
@@ -155,21 +164,29 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                           <span className="text-3xl" aria-hidden>
                             {weather.icon}
                           </span>
-                          <span className="flex min-w-0 flex-col">
-                            <span className="truncate font-medium hover:underline">{s.name}</span>
-                            <span className="text-sm text-zinc-500">
-                              {weather.label}
-                              {s.units.length > 0 && ` · 진도 ${done}/${s.units.length}`}
-                              {s.professor && ` · ${s.professor}`}
+                          <span className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="truncate font-medium hover:underline">{s.name}</span>
+                              {s.exam_date && <DDayBadge days={daysUntil(s.exam_date)} />}
                             </span>
+                            {s.units.length > 0 ? (
+                              <span className="flex items-center gap-2">
+                                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/70 ring-1 ring-black/5">
+                                  <span
+                                    className="block h-full rounded-full bg-zinc-800"
+                                    style={{ width: `${percent}%` }}
+                                  />
+                                </span>
+                                <span className="shrink-0 text-xs font-semibold tabular-nums text-zinc-600">
+                                  진도 {percent}%
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-sm text-zinc-500">단원을 추가해 주세요</span>
+                            )}
                           </span>
                         </Link>
                         <div className="flex shrink-0 items-center gap-3">
-                          {s.exam_date && (
-                            <span className="text-sm font-semibold">
-                              {dDayLabel(daysUntil(s.exam_date))}
-                            </span>
-                          )}
                           <form action={deleteSubject.bind(null, s.id)}>
                             <button
                               className="text-sm text-zinc-400 transition-colors hover:text-red-600"

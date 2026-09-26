@@ -2,6 +2,7 @@
 
 const DAY = 86_400_000;
 const PACE_WINDOW_DAYS = 14; // 최근 이 기간의 완료 속도로 예측한다.
+export const QUIZ_PASS_RATIO = 0.6; // 퀴즈 통과 기준 (5문제 중 3개)
 
 export type Weather = {
   icon: string;

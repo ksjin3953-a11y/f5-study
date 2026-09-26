@@ -3,9 +3,21 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { feed } from "@/app/feed-actions_new";
-import { ATTENDANCE_BONUS_EVERY, FOODS, type Food } from "@/lib/game_new";
+import { renamePet } from "@/app/pet-actions_new";
+import {
+  ATTENDANCE_BONUS_EVERY,
+  FOODS,
+  PET_NAME_MAX,
+  nextStage,
+  stageForLevel,
+  josa,
+  type Food,
+} from "@/lib/game_new";
+import type { FutureMeMessage } from "@/lib/future-me_new";
 
 type Props = {
+  petName: string;
+  forecast: FutureMeMessage | null; // "시험 날의 나" 예보. 내 딱따구리가 말풍선으로 전한다.
   ready: boolean;
   bag: Record<Food, number>;
   foods: Food[];
@@ -19,18 +31,23 @@ type Props = {
 // 먹는 연출 한 번. key가 바뀌면 애니메이션이 다시 시작된다.
 type Bite = { key: number; food: Food; xp: number };
 
-export function PetPanel({ ready, bag, foods, xp, level, current, need, attendance }: Props) {
+export function PetPanel({ petName, forecast, ready, bag, foods, xp, level, current, need, attendance }: Props) {
   const [pending, startTransition] = useTransition();
   const [bite, setBite] = useState<Bite | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [levelUp, setLevelUp] = useState(false);
+  const [levelUp, setLevelUp] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const prevLevel = useRef(level);
+  const stage = stageForLevel(level);
+  const next = nextStage(level);
+  const showWidth = Math.round((stage.show * stage.width) / stage.height);
 
-  // 먹이를 먹고 레벨이 오르면 축하 표시
+  // 먹이를 먹고 레벨이 오르면 축하 표시. 모습이 바뀌는 레벨이면 성장 문구로 축하한다.
   useEffect(() => {
     if (level > prevLevel.current) {
-      setLevelUp(true);
-      const t = setTimeout(() => setLevelUp(false), 2200);
+      const grew = stageForLevel(level) !== stageForLevel(prevLevel.current);
+      setLevelUp(grew ? stageForLevel(level).grown : "레벨 업!");
+      const t = setTimeout(() => setLevelUp(null), grew ? 3000 : 2200);
       prevLevel.current = level;
       return () => clearTimeout(t);
     }
@@ -50,19 +67,49 @@ export function PetPanel({ ready, bag, foods, xp, level, current, need, attendan
     });
   }
 
+  function onRename(formData: FormData) {
+    setError(null);
+    startTransition(async () => {
+      const result = await renamePet(String(formData.get("name") ?? ""));
+      if (result.error) setError(result.error);
+      else setEditing(false);
+    });
+  }
+
   const percent = Math.round((current / need) * 100);
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+      {forecast && (
+        <div className="relative rounded-2xl bg-zinc-900 px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
+          <span className="mb-1 block text-xs font-semibold tracking-wide text-zinc-400">
+            📡 시험 날의 나에게서 온 예보 · {josa(petName, "이", "가")} 전해요
+          </span>
+          <span className="mr-1" aria-hidden>
+            {forecast.weather}
+          </span>
+          {forecast.message}
+          {/* 말풍선 꼬리: 아래 딱따구리를 가리킨다 */}
+          <span className="absolute -bottom-2 left-8 h-4 w-4 rotate-45 bg-zinc-900" aria-hidden />
+        </div>
+      )}
       <div className="flex items-center gap-4">
-        <div className="relative h-[104px] w-[70px] shrink-0">
+        <div className="relative flex h-[104px] w-[76px] shrink-0 items-end justify-center">
           <Image
-            key={bite?.key ?? "idle"}
-            src="/mascot_new.png"
-            alt="내 딱따구리"
-            width={70}
-            height={104}
-            className={`absolute bottom-0 left-0 ${bite ? "pet-munch" : "mascot-hop"}`}
+            key={`${stage.name}-${bite?.key ?? "idle"}`}
+            src={stage.image}
+            alt={`${petName} (${stage.name})`}
+            width={showWidth}
+            height={stage.show}
+            className={
+              bite
+                ? levelUp && levelUp !== "레벨 업!"
+                  ? "pet-grow"
+                  : "pet-munch"
+                : stage.name === "알"
+                  ? "pet-egg-wobble"
+                  : "mascot-hop"
+            }
           />
           {bite && (
             <>
@@ -84,16 +131,53 @@ export function PetPanel({ ready, bag, foods, xp, level, current, need, attendan
           )}
           {levelUp && (
             <span className="pet-level-up pointer-events-none absolute -top-5 left-1/2 whitespace-nowrap rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
-              레벨 업!
+              {levelUp}
             </span>
           )}
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-baseline justify-between">
-            <span className="font-semibold">내 딱따구리</span>
-            <span className="text-lg font-bold text-amber-700">Lv.{level}</span>
-          </div>
+          {editing ? (
+            <form action={onRename} className="flex items-center gap-1">
+              <input
+                name="name"
+                defaultValue={petName}
+                maxLength={PET_NAME_MAX}
+                autoFocus
+                placeholder="이름"
+                aria-label="딱따구리 이름"
+                className="h-8 min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-2 text-sm"
+              />
+              <button
+                disabled={pending}
+                className="h-8 shrink-0 rounded-full bg-amber-500 px-3 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                저장
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="h-8 shrink-0 px-1 text-xs text-zinc-500 hover:text-zinc-900"
+              >
+                취소
+              </button>
+            </form>
+          ) : (
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate font-semibold">
+                {petName}{" "}
+                <span className="text-xs font-medium text-amber-700">· {stage.name}</span>{" "}
+                <button
+                  onClick={() => setEditing(true)}
+                  className="text-xs font-normal text-zinc-400 hover:text-zinc-700"
+                  aria-label="이름 바꾸기"
+                >
+                  ✏️ 이름
+                </button>
+              </span>
+              <span className="shrink-0 text-lg font-bold text-amber-700">Lv.{level}</span>
+            </div>
+          )}
           <div className="h-2.5 overflow-hidden rounded-full bg-amber-100">
             <div
               className="h-full rounded-full bg-amber-500 transition-[width] duration-700"
@@ -103,6 +187,11 @@ export function PetPanel({ ready, bag, foods, xp, level, current, need, attendan
           <span className="text-xs text-zinc-500">
             다음 레벨까지 {need - current} XP · 누적 {xp} XP
           </span>
+          {next && (
+            <span className="text-xs text-amber-700">
+              Lv.{next.minLevel}이 되면 {next.name === "아기" ? "알에서 깨어나요 🐣" : "어른 딱따구리가 돼요 🪶"}
+            </span>
+          )}
         </div>
       </div>
 
