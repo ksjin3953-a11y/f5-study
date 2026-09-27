@@ -12,6 +12,8 @@ import {
   stageForLevel,
   type Food,
 } from "@/lib/game_new";
+import { Button } from "@/components/ui-button_new";
+import { CalendarDays, Pencil } from "lucide-react";
 
 type Props = {
   petName: string;
@@ -77,7 +79,7 @@ export function PetPanel({ petName, forecast, ready, bag, foods, xp, level, curr
   const percent = Math.round((current / need) * 100);
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+    <section className="flex flex-col gap-4 rounded-3xl bg-amber-50 p-5">
       {forecast}
       <div className="flex items-center gap-4">
         <div className="relative flex h-[104px] w-[76px] shrink-0 items-end justify-center">
@@ -155,18 +157,19 @@ export function PetPanel({ petName, forecast, ready, bag, foods, xp, level, curr
                 <span className="text-xs font-medium text-amber-700">· {stage.name}</span>{" "}
                 <button
                   onClick={() => setEditing(true)}
-                  className="text-xs font-normal text-zinc-400 hover:text-zinc-700"
+                  className="inline-flex items-center gap-0.5 text-xs font-normal text-zinc-400 hover:text-zinc-700"
                   aria-label="이름 바꾸기"
                 >
-                  ✏️ 이름
+                  <Pencil className="size-3 text-brand" aria-hidden />
+                  이름
                 </button>
               </span>
-              <span className="shrink-0 text-lg font-bold text-amber-700">Lv.{level}</span>
+              <span className="shrink-0 font-display text-lg tabular-nums text-amber-700">Lv.{level}</span>
             </div>
           )}
-          <div className="h-2.5 overflow-hidden rounded-full bg-amber-100">
+          <div className="h-2.5 overflow-hidden rounded-full bg-forest-light">
             <div
-              className="h-full rounded-full bg-amber-500 transition-[width] duration-700"
+              className="h-full rounded-full bg-forest transition-[width] duration-700"
               style={{ width: `${percent}%` }}
             />
           </div>
@@ -174,16 +177,24 @@ export function PetPanel({ petName, forecast, ready, bag, foods, xp, level, curr
             다음 레벨까지 {need - current} XP · 누적 {xp} XP
           </span>
           {next && (
-            <span className="text-xs text-amber-700">
-              Lv.{next.minLevel}이 되면 {next.name === "아기" ? "알에서 깨어나요 🐣" : "어른 딱따구리가 돼요 🪶"}
+            <span className="flex items-center gap-1 text-xs text-amber-700">
+              Lv.{next.minLevel}이 되면 {next.name === "아기" ? "알에서 깨어나요" : "어른 딱따구리가 돼요"}
+              <Image
+                src={next.image}
+                alt=""
+                width={Math.round((16 * next.width) / next.height)}
+                height={16}
+                className="opacity-80"
+              />
             </span>
           )}
         </div>
       </div>
 
       {attendance && (
-        <p className="rounded-xl bg-white px-3 py-2 text-xs text-zinc-600 ring-1 ring-amber-100">
-          📅 출석 <b className="text-amber-700">{attendance.days}일째</b> · 오늘 나무 조각{" "}
+        <p className="rounded-2xl bg-white/70 px-3 py-2 text-xs text-zinc-600">
+          <CalendarDays className="mr-1 inline size-3.5 align-[-0.15em] text-brand" aria-hidden />
+          출석 <b className="text-amber-700">{attendance.days}일째</b> · 오늘 나무 조각{" "}
           <b className="text-amber-700">{attendance.todayWood}개</b>를 받았어요
           {attendance.days % ATTENDANCE_BONUS_EVERY !== 0 &&
             ` (${ATTENDANCE_BONUS_EVERY - (attendance.days % ATTENDANCE_BONUS_EVERY)}일 뒤 2개 보너스)`}
@@ -192,7 +203,7 @@ export function PetPanel({ petName, forecast, ready, bag, foods, xp, level, curr
 
       <ul className="grid grid-cols-3 gap-2">
         {foods.map((f) => (
-          <li key={f} className="flex flex-col items-center gap-1 rounded-xl bg-white px-2 py-2 ring-1 ring-amber-100">
+          <li key={f} className="flex flex-col items-center gap-1 rounded-2xl bg-white/70 px-2 py-2">
             <Image src={FOODS[f].image} alt="" width={40} height={40} className="h-10 w-10 object-contain" />
             <span className="text-xs font-medium">
               {FOODS[f].name} ×{bag[f]}
@@ -200,13 +211,16 @@ export function PetPanel({ petName, forecast, ready, bag, foods, xp, level, curr
             <span className="text-[10px] text-zinc-400">
               {FOODS[f].how} · +{FOODS[f].xp}XP
             </span>
-            <button
+            {/* 좁은 화면에서는 칸이 좁아 글자와 여백을 줄인다 */}
+            <Button
               onClick={() => onFeed(f)}
               disabled={!ready || pending || bag[f] <= 0}
-              className="mt-1 h-7 w-full rounded-full bg-amber-500 text-xs font-semibold text-white transition-colors hover:bg-amber-600 disabled:bg-zinc-200 disabled:text-zinc-400"
+              variant="success"
+              size="sm"
+              className="mt-1 w-full px-1! text-xs! sm:text-sm!"
             >
               먹이 주기
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

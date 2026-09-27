@@ -1,28 +1,27 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server_new";
-import { UnitForm } from "@/components/unit-form_new";
-import { SyllabusImport } from "@/components/syllabus-import_new";
+import { UnitSetup } from "@/components/unit-setup_new";
 import { Materials } from "@/components/materials_new";
-import { RecordForm } from "@/components/record-form_new";
-import { Quiz } from "@/components/quiz_new";
 import { MascotSays } from "@/components/mascot_new";
-import { BossMini, BossPanel } from "@/components/boss-panel_new";
+import { BossPanel } from "@/components/boss-panel_new";
 import { daysUntil, isDone, needsReview, studyWeather } from "@/lib/weather_new";
 import { DDayBadge } from "@/components/dday-badge_new";
 import { HawkTaunt } from "@/components/hawk-taunt_new";
+import { DeleteSubject } from "@/components/delete-subject_new";
+import { AppShell } from "@/components/app-shell_new";
+import { WeatherIcon } from "@/components/weather-icon_new";
+import { UnitPath, type PathUnit } from "@/components/unit-path_new";
 import { lastStudyAt, petNameOf } from "@/lib/game_new";
-import { isFading, memoryOf } from "@/lib/memory_new";
-import { deleteUnit, setUnitStatus, type UnitStatus } from "@/app/unit-actions_new";
+import { memoryOf } from "@/lib/memory_new";
+import type { UnitStatus } from "@/app/unit-actions_new";
 
-const STATUSES: { value: UnitStatus; label: string }[] = [
-  { value: "todo", label: "할 일" },
-  { value: "doing", label: "하는 중" },
-  { value: "done", label: "완료" },
-];
-
-export default async function SubjectPage({ params }: PageProps<"/subjects/[id]">) {
+export default async function SubjectPage({ params, searchParams }: PageProps<"/subjects/[id]">) {
   const { id } = await params;
+  // 과목 추가 흐름에서 넘어오면 단원 만들기 탭을 골라 연다 (?setup=pdf | manual)
+  const { setup: setupParam } = await searchParams;
+  const setup = setupParam === "pdf" || setupParam === "manual" ? setupParam : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -58,149 +57,71 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
   const percent = total ? Math.round((done / total) * 100) : 0;
   const weather = studyWeather({ ...subject, units: units ?? [] });
   const daysLeft = subject.exam_date ? daysUntil(subject.exam_date) : null;
-
-  // 단원 카드 하나. 할 단원 목록과 접어 둔 완료 목록이 같이 쓴다.
-  const renderUnit = (u: NonNullable<typeof units>[number]) => {
-    const logs = [...u.study_logs].sort((a, b) =>
-      b.studied_at.localeCompare(a.studied_at)
-    );
-    const quizzes = [...u.quiz_results].sort((a, b) =>
-      b.created_at.localeCompare(a.created_at)
-    );
-    const latestQuiz = quizzes[0];
-    const review = needsReview(u);
-    const memory = memoryOf(u);
-    const fading = memory?.fading ?? false;
-    return (
-      <li
-        key={u.id}
-        className={`flex flex-col gap-2 rounded-2xl border px-4 py-3 ${
-          review
-            ? "border-violet-300 bg-violet-50"
-            : fading
-              ? "border-amber-300 bg-amber-50"
-              : "border-zinc-200"
-        }`}
-        // 기억이 옅어질수록 카드도 흐려진다(완료한 단원만)
-        style={memory && !fading ? { opacity: 0.55 + (0.45 * memory.percent) / 100 } : undefined}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <span
-            className={`font-medium ${isDone(u) && !fading ? "text-zinc-400 line-through" : ""}`}
-          >
-            {review && <span className="mr-1 text-xs text-violet-600">복습 필요</span>}
-            {fading && <span className="mr-1 text-xs text-amber-700">🧠 복습할 때</span>}
-            {u.title}
-          </span>
-          <form action={deleteUnit.bind(null, u.id)}>
-            <button
-              className="shrink-0 text-sm text-zinc-400 transition-colors hover:text-red-600"
-              aria-label={`${u.title} 삭제`}
-            >
-              삭제
-            </button>
-          </form>
-        </div>
-        <div className="flex gap-1">
-          {STATUSES.map((s) => (
-            <form key={s.value} action={setUnitStatus.bind(null, u.id, s.value)}>
-              <button
-                disabled={u.status === s.value}
-                className={`h-8 rounded-full px-3 text-sm transition-colors ${
-                  u.status === s.value
-                    ? "bg-zinc-900 text-white"
-                    : "border border-zinc-300 text-zinc-600 hover:bg-zinc-100"
-                }`}
-              >
-                {s.label}
-              </button>
-            </form>
-          ))}
-        </div>
-        {memory && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className={`shrink-0 font-semibold ${fading ? "text-amber-700" : "text-zinc-600"}`}>
-              🧠 기억 {memory.percent}%
-            </span>
-            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
-              <span
-                className={`block h-full rounded-full ${fading ? "bg-amber-500" : "bg-emerald-500"}`}
-                style={{ width: `${memory.percent}%` }}
-              />
-            </span>
-            <span className="shrink-0 text-zinc-500">
-              {fading
-                ? "AI 퀴즈로 되살려요"
-                : `복습 ${new Date(memory.reviewAt).toLocaleDateString("ko-KR", {
-                    timeZone: "Asia/Seoul",
-                    month: "numeric",
-                    day: "numeric",
-                  })}`}
-            </span>
-          </div>
-        )}
-        {(logs.length > 0 || latestQuiz) && (
-          <p className="text-sm text-zinc-500">
-            {[
-              logs.length > 0 && `공부 ${logs.length}회`,
-              latestQuiz &&
-                `최근 퀴즈 ${latestQuiz.score}/${latestQuiz.total} ${
-                  latestQuiz.passed ? "통과" : "미통과"
-                }`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        )}
-        <details className="text-sm">
-          <summary className="cursor-pointer font-medium text-violet-700 hover:text-violet-900">
-            AI 퀴즈{isDone(u) ? " · 복습하기" : " · 3/5 맞히면 완료"}
-          </summary>
-          <div className="mt-2">
-            <Quiz unitId={u.id} />
-          </div>
-        </details>
-        <details className="text-sm">
-          <summary className="cursor-pointer text-zinc-600 hover:text-zinc-900">
-            기록 남기기{logs.length > 0 && " · 지난 기록 보기"}
-          </summary>
-          <div className="mt-2 flex flex-col gap-3">
-            <RecordForm unitId={u.id} />
-            {logs.length > 0 && (
-              <ul className="flex flex-col gap-1 border-t border-zinc-200 pt-2">
-                {logs.slice(0, 5).map((log) => (
-                  <li key={log.id} className="text-zinc-600">
-                    <span className="text-zinc-400">
-                      {new Date(log.studied_at).toLocaleDateString("ko-KR", {
-                        timeZone: "Asia/Seoul",
-                        month: "numeric",
-                        day: "numeric",
-                      })}
-                    </span>{" "}
-                    {log.memo ?? "공부함"}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </details>
-      </li>
-    );
-  };
-  // 기억이 옅어진 단원은 끝냈어도 할 단원 목록으로 올려 복습하게 한다.
-  const activeUnits = units?.filter((u) => !isDone(u) || isFading(u)) ?? [];
   const lastStudy = lastStudyAt(units ?? []);
-  const doneUnits = units?.filter((u) => isDone(u) && !isFading(u)) ?? [];
+
+  // 보스가 흥분하는 조건은 BossPanel과 같다: 시험 7일 이내 + HP 50% 이상 남음
+  const remaining = total - done;
+  const hawkAngry =
+    remaining > 0 && daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && total > 0 && remaining / total >= 0.5;
+
+  // 나무 경로에 넘길 단원 정보. 상태 판단은 기존 lib 함수(isDone·needsReview·memoryOf) 그대로.
+  const materialCount = new Map<string, number>();
+  for (const m of materials ?? []) {
+    if (m.unit_id) materialCount.set(m.unit_id, (materialCount.get(m.unit_id) ?? 0) + 1);
+  }
+  const pathUnits: PathUnit[] = (units ?? []).map((u) => {
+    const memory = memoryOf(u);
+    const kind: PathUnit["kind"] = needsReview(u)
+      ? "review"
+      : memory?.fading
+        ? "fading"
+        : isDone(u)
+          ? "done"
+          : u.status === "doing"
+            ? "doing"
+            : "todo";
+    const latest = [...u.quiz_results].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    return {
+      id: u.id,
+      title: u.title,
+      status: u.status as UnitStatus,
+      kind,
+      memory: memory && { percent: memory.percent, reviewAt: memory.reviewAt },
+      logCount: u.study_logs.length,
+      logs: [...u.study_logs].sort((a, b) => b.studied_at.localeCompare(a.studied_at)).slice(0, 5),
+      latestQuiz: latest ? { score: latest.score, total: latest.total, passed: latest.passed } : null,
+      materials: materialCount.get(u.id) ?? 0,
+    };
+  });
 
   return (
-    <main className="page-card flex flex-1 flex-col gap-8 px-6 py-10">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-2">
-            <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-900">
-              ← 내 과목
-            </Link>
-            <h1 className="text-2xl font-bold tracking-tight">{subject.name}</h1>
+    <AppShell active="home">
+      <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-4">
+          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-900">
+            ← 내 과목
+          </Link>
+
+          {/* 무대 배너: 왼쪽 딱따구리가 날씨를 전하고, 오른쪽에서 매가 기다린다 */}
+          <section className="flex min-h-[190px] items-end justify-between gap-2 overflow-hidden rounded-3xl bg-[url(/stage_new.svg)] bg-cover bg-bottom px-4 pb-3 pt-6 lg:min-h-[220px] lg:px-6">
+            <MascotSays mood={weather.tone} className="min-w-0 flex-1">
+              <span className="inline-flex items-center gap-1 font-bold">
+                <WeatherIcon tone={weather.tone} emoji={weather.icon} size={20} />
+                {weather.label}
+              </span>
+              <span className="mt-0.5 block">{weather.detail}</span>
+            </MascotSays>
+            <Image
+              src="/hawk_new.png"
+              alt="보스 매"
+              width={64}
+              height={99}
+              className={`shrink-0 drop-shadow-[0_6px_6px_rgb(60_40_20/0.25)] ${hawkAngry ? "boss-angry" : "boss-hover"}`}
+            />
+          </section>
+
+          <div className="flex flex-col gap-1.5">
+            <h1 className="font-display text-3xl">{subject.name}</h1>
             <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-zinc-500">
               {subject.professor && <span>{subject.professor} ·</span>}
               {subject.exam_date && daysLeft !== null ? (
@@ -213,74 +134,52 @@ export default async function SubjectPage({ params }: PageProps<"/subjects/[id]"
               )}
             </p>
           </div>
-          <BossMini remaining={total - done} total={total} />
         </div>
-        <MascotSays className="mt-2" mood={weather.tone}>
-          <span className="font-semibold">
-            {weather.icon} {weather.label}
-          </span>
-          <br />
-          {weather.detail}
-        </MascotSays>
+
+        <div className="flex flex-col gap-2">
+          <BossPanel remaining={remaining} total={total} daysLeft={daysLeft} />
+          {total > 0 && (
+            <p className="text-right text-xs tabular-nums text-zinc-500">
+              {done}/{total} 단원 · {percent}%
+            </p>
+          )}
+        </div>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-xl font-bold">단원</h2>
+          <UnitPath
+            units={pathUnits}
+            examDate={subject.exam_date}
+            daysLeft={daysLeft}
+            autoScroll={!setup}
+            boss={{ remaining, total }}
+          />
+        </section>
+
+        <UnitSetup subjectId={subject.id} existingCount={total} setup={setup} />
+
+        <Materials
+          subjectId={subject.id}
+          units={(units ?? []).map((u) => ({ id: u.id, title: u.title }))}
+          materials={materials ?? []}
+          ready={!materialsError}
+        />
+
+        {/* 맨 아래 작게 */}
+        <section className="flex items-center justify-between gap-3 border-t border-zinc-200/80 pt-5">
+          <p className="min-w-0 text-xs text-zinc-400">
+            <span className="font-bold text-zinc-500">과목 삭제</span> · 단원, 학습 기록, 퀴즈 결과가 모두 함께 지워져요.
+          </p>
+          <DeleteSubject subjectId={subject.id} />
+        </section>
+
+        <HawkTaunt
+          key={lastStudy ?? "never"}
+          lastStudyAt={lastStudy}
+          petName={petNameOf(user)}
+          target={{ subjectId: subject.id, subjectName: subject.name, daysLeft, remaining }}
+        />
       </div>
-
-      <BossPanel remaining={total - done} total={total} daysLeft={daysLeft} />
-
-      <section className="flex flex-col gap-2">
-        <div className="flex justify-between text-sm">
-          <span className="font-semibold">진도</span>
-          <span className="text-zinc-500">
-            {done}/{total} 단원 · {percent}%
-          </span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
-          <div className="h-full rounded-full bg-zinc-900" style={{ width: `${percent}%` }} />
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-semibold">단원</h2>
-        {units && units.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {activeUnits.length > 0 ? (
-              activeUnits.map(renderUnit)
-            ) : (
-              <li className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                모든 단원을 끝냈어요! 🎉
-              </li>
-            )}
-          </ul>
-        ) : (
-          <MascotSays>아직 단원이 없어요. 강의계획서를 보고 단원을 추가해 보세요!</MascotSays>
-        )}
-        {doneUnits.length > 0 && (
-          <details className="group rounded-2xl border border-zinc-200 bg-zinc-50/80">
-            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-zinc-600 hover:text-zinc-900">
-              <span>✅ 완료한 단원 {doneUnits.length}개</span>
-              <span className="text-xs text-zinc-400 transition-transform group-open:rotate-180">▼</span>
-            </summary>
-            <ul className="flex flex-col gap-2 px-2 pb-2">{doneUnits.map(renderUnit)}</ul>
-          </details>
-        )}
-      </section>
-
-      <SyllabusImport subjectId={subject.id} existingCount={total} />
-
-      <UnitForm subjectId={subject.id} />
-
-      <Materials
-        subjectId={subject.id}
-        units={(units ?? []).map((u) => ({ id: u.id, title: u.title }))}
-        materials={materials ?? []}
-        ready={!materialsError}
-      />
-
-      <HawkTaunt
-        key={lastStudy ?? "never"}
-        lastStudyAt={lastStudy}
-        petName={petNameOf(user)}
-        target={{ subjectId: subject.id, subjectName: subject.name, daysLeft, remaining: total - done }}
-      />
-    </main>
+    </AppShell>
   );
 }

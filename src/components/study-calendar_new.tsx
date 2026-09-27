@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { CircleCheck, Leaf } from "lucide-react";
 import { addDays, type Plan } from "@/lib/plan_new";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -93,7 +95,7 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
                 isSelected
                   ? "bg-zinc-900 text-white"
                   : dayExams.length
-                    ? "bg-rose-50 ring-1 ring-rose-200 hover:bg-rose-100"
+                    ? "bg-rose-100/70 hover:bg-rose-100"
                     : "hover:bg-zinc-100"
               } ${d < plan.today && !isSelected ? "text-zinc-400" : ""}`}
             >
@@ -104,8 +106,8 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
               >
                 {Number(d.slice(8))}
               </span>
-              {dayExams.length > 0 && <span className="text-sm leading-none">🦅</span>}
-              {isLight && dayExams.length === 0 && <span className="text-[10px] leading-none">🌿</span>}
+              {dayExams.length > 0 && <Image src="/hawk_new.png" alt="시험 날" width={12} height={19} />}
+              {isLight && dayExams.length === 0 && <Leaf className="size-2.5 text-forest" aria-label="가벼운 날" />}
               {count > 0 && (
                 <>
                   <span className="flex flex-wrap justify-center gap-0.5">
@@ -120,13 +122,18 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
                   <span className="text-[10px] font-semibold tabular-nums">{count}단원</span>
                 </>
               )}
-              {count === 0 && doneCount > 0 && <span className="text-[10px]">✅{doneCount}</span>}
+              {count === 0 && doneCount > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] tabular-nums">
+                  <CircleCheck className="size-2.5 text-forest" aria-label="끝낸 단원" />
+                  {doneCount}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      <section className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-4">
+      <section className="flex flex-col gap-3 rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="font-semibold">
             {dateLabel(selected)}
@@ -136,14 +143,19 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
         </div>
 
         {selectedLight && !isPast && (
-          <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            🌿 주말이라 {entries.length > 0 ? "가볍게 짰어요. 이것만 하고 푹 쉬어요!" : "쉬는 날이에요. 푹 쉬어요!"}
+          <p className="flex items-start gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <Leaf className="mt-0.5 size-4 shrink-0 text-forest" aria-hidden />
+            주말이라 {entries.length > 0 ? "가볍게 짰어요. 이것만 하고 푹 쉬어요!" : "쉬는 날이에요. 푹 쉬어요!"}
           </p>
         )}
 
         {exams.map((e) => (
-          <p key={e.subjectId} className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
-            🦅 {e.subjectName} 시험 날 · 보스가 와요!
+          <p
+            key={e.subjectId}
+            className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700"
+          >
+            <Image src="/hawk_new.png" alt="" width={16} height={25} className="boss-hover" />
+            {e.subjectName} 시험 날 · 보스가 와요!
           </p>
         ))}
 
@@ -159,7 +171,11 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
             <ul className="flex flex-col gap-1 pl-4">
               {e.units.map((u) => (
                 <li key={u.id} className={`text-sm ${u.done ? "text-zinc-400 line-through" : ""}`}>
-                  {u.done ? "✅ " : "· "}
+                  {u.done ? (
+                    <CircleCheck className="mr-1 inline size-3.5 align-[-0.15em] text-forest" aria-label="완료" />
+                  ) : (
+                    "· "
+                  )}
                   {u.review && !u.done && <span className="mr-1 text-xs text-violet-600">복습</span>}
                   {u.title}
                 </li>
@@ -184,7 +200,14 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
 
         {entries.length === 0 && exams.length === 0 && done.length === 0 && !selectedLight && (
           <p className="text-sm text-zinc-500">
-            {isPast ? "이날은 기록이 없어요." : "이날은 계획된 공부가 없어요. 🌿"}
+            {isPast ? (
+              "이날은 기록이 없어요."
+            ) : (
+              <>
+                이날은 계획된 공부가 없어요.
+                <Leaf className="ml-1 inline size-3.5 align-[-0.15em] text-forest" aria-hidden />
+              </>
+            )}
           </p>
         )}
         {!isPast && entries.length > 0 && (

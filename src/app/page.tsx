@@ -1,8 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server_new";
-import { LoginButton, LogoutButton } from "@/components/auth-buttons_new";
-import { SubjectForm } from "@/components/subject-form_new";
-import { deleteSubject } from "@/app/subject-actions_new";
+import { Landing } from "@/components/landing_new";
+import { AppShell } from "@/components/app-shell_new";
 import { setUnitStatus } from "@/app/unit-actions_new";
 import {
   dateInSeoul,
@@ -17,18 +17,38 @@ import { DDayBadge } from "@/components/dday-badge_new";
 import { recommendToday } from "@/lib/recommend_new";
 import { Suspense } from "react";
 import { FutureMeBubble, FutureMeLoading } from "@/components/future-me-bubble_new";
-import { MascotSays } from "@/components/mascot_new";
+import { SpeechBubble, moodMotion } from "@/components/mascot_new";
 import { PetPanel } from "@/components/pet-panel_new";
 import { loadGameState } from "@/lib/game-state_new";
-import { lastStudyAt, petNameOf } from "@/lib/game_new";
+import { lastStudyAt, petNameOf, stageForLevel } from "@/lib/game_new";
 import { HawkTaunt } from "@/components/hawk-taunt_new";
+import { Button, buttonClass } from "@/components/ui-button_new";
+import { WeatherIcon } from "@/components/weather-icon_new";
+import { CalendarDays, Check, Leaf, PartyPopper, Plus } from "lucide-react";
 
 const TONE_CLASS: Record<Weather["tone"], string> = {
-  sunny: "border-amber-200 bg-amber-50",
-  cloudy: "border-sky-200 bg-sky-50",
-  rainy: "border-blue-300 bg-blue-50",
-  stormy: "border-violet-300 bg-violet-50",
-  none: "border-zinc-200",
+  sunny: "bg-amber-100",
+  cloudy: "bg-sky-100",
+  rainy: "bg-blue-100",
+  stormy: "bg-violet-100",
+  none: "bg-zinc-100",
+};
+
+// 무대 배너 말풍선: lib가 만든 문장·요약의 날씨 이모지를 아래 과목 목록과 같은 날씨 이미지로 바꿔 보여 준다.
+const SUMMARY_TONES = ["stormy", "rainy", "cloudy", "sunny"] as const;
+const TONE_EMOJI: Record<Weather["tone"], string> = { stormy: "⛈️", rainy: "🌧️", cloudy: "⛅", sunny: "☀️", none: "🌫️" };
+const TONE_LABEL: Record<Weather["tone"], string> = { stormy: "폭풍", rainy: "비", cloudy: "구름", sunny: "맑음", none: "예보 전" };
+const LEADING_EMOJI = /^(\p{Extended_Pictographic}️?)\s*/u;
+const leadingEmoji = (text: string) => text.match(LEADING_EMOJI)?.[1] ?? null;
+const withoutLeadingEmoji = (text: string) => text.replace(LEADING_EMOJI, "");
+
+// 무대 배너 하늘 덧칠. 맑음·관측 중은 풍경 그대로.
+const SKY_TINT: Record<Weather["tone"], string> = {
+  sunny: "bg-transparent",
+  cloudy: "bg-stage-cloudy/70",
+  rainy: "bg-stage-rainy/75",
+  stormy: "bg-stage-stormy/80",
+  none: "bg-transparent",
 };
 
 export default async function Home({ searchParams }: PageProps<"/">) {
@@ -85,80 +105,152 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       </Suspense>
     ) : null;
 
+  if (!user) return <Landing loginError={error === "login"} />;
+
+  const stage = stageForLevel(game?.level ?? 1);
+
   return (
-    <main
-      className={`page-card flex flex-1 flex-col gap-8 px-6 py-10 ${
-        user ? "" : "justify-center"
-      }`}
-    >
-      <div className="flex flex-col gap-3">
-        <p className="text-4xl">⛈️ → ☀️</p>
-        <h1 className="text-3xl font-bold tracking-tight">F5 Study</h1>
-        <p className="text-zinc-600">
-          지금 속도로 공부하면 시험 날 어디까지 끝낼 수 있을까요?
-          <br />
-          과목별 학습 날씨로 확인하고, 오늘 할 공부를 추천받으세요.
-        </p>
-      </div>
+    <AppShell active="home">
+      <div className="flex flex-col gap-10">
+        {/* 소개 헤더는 랜딩에만 둔다. 화면 읽기 프로그램용 제목만 남긴다. */}
+        <h1 className="sr-only">F5 Study</h1>
 
-      {user ? (
-        <>
-          <Link
-            href="/calendar"
-            className="flex h-11 items-center justify-center gap-2 rounded-full bg-sky-600 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-500"
-          >
-            📅 공부 캘린더 · 하루에 뭘 얼마나 할지 보기
-          </Link>
-
-          {game && <PetPanel petName={petName} forecast={futureMe} {...game} />}
-
-          {/* 주말 쉬는 날이나 오늘 몫을 다 끝낸 날에는 매가 도발하지 않는다 */}
-          {todayStatus !== "rest" && todayStatus !== "done" && (
-            <HawkTaunt
-              key={lastStudy ?? "never"}
-              lastStudyAt={lastStudy}
-              petName={petName}
-              target={
-                tauntTarget && {
-                  subjectId: tauntTarget.id,
-                  subjectName: tauntTarget.name,
-                  daysLeft: tauntTarget.exam_date ? daysUntil(tauntTarget.exam_date) : null,
-                  remaining: tauntTarget.units.filter((u) => !isDone(u)).length,
-                }
-              }
-              studyHref={tauntTarget ? `/subjects/${tauntTarget.id}` : undefined}
+        {/* 무대 배너: 클레이 풍경 위에서 지금 모습의 딱따구리가 오늘의 전체 날씨를 전한다.
+            풍경의 오른쪽 아래는 비워 둔 자리라 딱따구리를 오른쪽에 세우고, 말풍선은 그 왼쪽에 둔다. */}
+        <section className="relative h-[180px] overflow-hidden rounded-3xl bg-[url(/stage_new.svg)] bg-cover bg-right-bottom lg:h-[220px]">
+          {/* 날씨에 따라 하늘만 덧칠한다. 아래쪽(언덕·잔디)으로 갈수록 투명해진다. */}
+          <div
+            className={`absolute inset-0 transition-colors duration-700 ${SKY_TINT[overall?.tone ?? "none"]}`}
+            style={{ maskImage: "linear-gradient(to bottom, #000 35%, transparent 70%)" }}
+            aria-hidden
+          />
+          <div className="relative flex h-full items-end justify-end gap-3 px-4 pb-2.5 lg:gap-4 lg:px-8 lg:pb-3">
+            <SpeechBubble tail="right" className="mb-auto mt-4 lg:mt-6 lg:text-base">
+              {overall ? (
+                <>
+                  {/* 문장 앞 이모지 대신 아래 과목 목록과 같은 날씨 이미지 */}
+                  <span className="flex items-start gap-1.5">
+                    <WeatherIcon
+                      tone={overall.tone}
+                      emoji={leadingEmoji(overall.message) ?? TONE_EMOJI[overall.tone]}
+                      size={22}
+                      className="mt-px"
+                    />
+                    <span>{withoutLeadingEmoji(overall.message)}</span>
+                  </span>
+                  {/* 요약도 이모지 대신 날씨 이미지 + 개수. 날씨가 아직 없는 과목은 "예보 전"으로 묶는다. */}
+                  <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {SUMMARY_TONES.map((tone) => {
+                      const n = cards.filter((c) => c.weather.tone === tone).length;
+                      return n ? (
+                        <span
+                          key={tone}
+                          className="inline-flex items-center gap-0.5 rounded-full bg-field py-0.5 pl-1 pr-2 text-xs font-bold tabular-nums text-zinc-600"
+                        >
+                          <WeatherIcon tone={tone} emoji={TONE_EMOJI[tone]} size={18} label={TONE_LABEL[tone]} />
+                          {n}
+                        </span>
+                      ) : null;
+                    })}
+                    {cards.some((c) => c.weather.tone === "none") && (
+                      <span className="rounded-full bg-field px-2 py-0.5 text-xs font-bold tabular-nums text-zinc-500">
+                        예보 전 {cards.filter((c) => c.weather.tone === "none").length}
+                      </span>
+                    )}
+                  </span>
+                </>
+              ) : (
+                "아직 과목이 없어요. 첫 과목을 추가해 보세요!"
+              )}
+            </SpeechBubble>
+            <Image
+              src={stage.image}
+              alt={`${petName} (${stage.name})`}
+              width={Math.round((150 * stage.width) / stage.height)}
+              height={150}
+              priority
+              className={`h-[112px] w-auto shrink-0 drop-shadow-[0_6px_6px_rgb(60_110_70/0.25)] lg:h-[150px] ${
+                stage.name === "알" ? "pet-egg-wobble" : moodMotion(overall?.tone ?? "none") || "mascot-hop"
+              }`}
             />
-          )}
+          </div>
+        </section>
 
-          {(todayStatus === "rest" || todayStatus === "done") && (
-            <section className="flex flex-col gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
-              <h2 className="font-semibold">오늘의 추천 공부</h2>
-              <p className="text-sm text-emerald-800">
-                {todayStatus === "rest"
-                  ? "🌿 주말이라 오늘은 쉬는 날이에요. 푹 쉬고 월요일에 다시 달려요!"
-                  : "🎉 오늘 몫을 다 끝냈어요! 남은 건 캘린더에 나눠 뒀으니 편하게 쉬어요."}
-              </p>
-              <Link href="/calendar" className="text-sm font-medium text-emerald-700 hover:underline">
-                📅 이번 주 계획 보기 →
-              </Link>
-            </section>
-          )}
+        {game && <PetPanel petName={petName} forecast={futureMe} {...game} />}
 
-          {recommendations.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <h2 className="font-semibold">
-                오늘의 추천 공부
-                {todayLight && <span className="ml-1 text-sm font-normal text-emerald-700">🌿 주말이라 가볍게</span>}
+        {/* 주말 쉬는 날이나 오늘 몫을 다 끝낸 날에는 매가 도발하지 않는다 */}
+        {todayStatus !== "rest" && todayStatus !== "done" && (
+          <HawkTaunt
+            key={lastStudy ?? "never"}
+            lastStudyAt={lastStudy}
+            petName={petName}
+            target={
+              tauntTarget && {
+                subjectId: tauntTarget.id,
+                subjectName: tauntTarget.name,
+                daysLeft: tauntTarget.exam_date ? daysUntil(tauntTarget.exam_date) : null,
+                remaining: tauntTarget.units.filter((u) => !isDone(u)).length,
+              }
+            }
+            studyHref={tauntTarget ? `/subjects/${tauntTarget.id}` : undefined}
+          />
+        )}
+
+        {(todayStatus === "rest" || todayStatus === "done") && (
+          <section className="flex flex-col gap-2 rounded-3xl bg-forest-light p-5">
+            <h2 className="text-xl font-bold">오늘의 공격</h2>
+            <p className="flex items-start gap-1.5 text-sm text-emerald-800">
+              {todayStatus === "rest" ? (
+                <>
+                  <Leaf className="mt-0.5 size-4 shrink-0 text-forest" aria-hidden />
+                  주말이라 오늘은 쉬는 날이에요. 푹 쉬고 월요일에 다시 달려요!
+                </>
+              ) : (
+                <>
+                  <PartyPopper className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden />
+                  오늘 몫을 다 끝냈어요! 남은 건 공격 계획표에 나눠 뒀으니 편하게 쉬어요.
+                </>
+              )}
+            </p>
+            <Link
+              href="/calendar"
+              className="flex items-center gap-1 text-sm font-medium text-emerald-700 hover:underline"
+            >
+              <CalendarDays className="size-4 text-forest" aria-hidden />
+              이번 주 공격 계획표 보기 →
+            </Link>
+          </section>
+        )}
+
+        {recommendations.length > 0 && (
+          <section className="flex flex-col gap-4 rounded-3xl bg-brand-light p-5">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-xl font-bold">
+                오늘의 공격
+                {todayLight && (
+                  <span className="ml-1.5 inline-flex items-center gap-1 text-sm font-normal text-emerald-700">
+                    <Leaf className="size-3.5 text-forest" aria-hidden />
+                    주말이라 가볍게
+                  </span>
+                )}
               </h2>
-              <ul className="flex flex-col gap-3">
-                {recommendations.map((r) => (
-                  <li
-                    key={r.subjectId}
-                    className="flex flex-col gap-2 rounded-2xl border border-zinc-200 px-4 py-4"
-                  >
+              <p className="text-sm text-brand-dark/80">끝내면 매 HP가 깎여요</p>
+            </div>
+            <ul className="flex flex-col divide-y divide-brand/15">
+              {recommendations.map((r) => {
+                // 추천에는 이모지만 있어서, 같은 과목의 날씨(tone)는 과목 카드 목록에서 찾는다.
+                const weather = cards.find((c) => c.id === r.subjectId)?.weather;
+                return (
+                  <li key={r.subjectId} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0">
                     <Link href={`/subjects/${r.subjectId}`} className="flex flex-col hover:underline">
-                      <span className="font-medium">
-                        {r.weatherIcon} {r.subjectName}
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <WeatherIcon
+                          tone={weather?.tone ?? "none"}
+                          emoji={r.weatherIcon}
+                          size={22}
+                          label={weather?.label}
+                        />
+                        {r.subjectName}
                       </span>
                       <span className="text-sm text-zinc-500">{r.reason}</span>
                     </Link>
@@ -175,112 +267,94 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                           {u.review ? (
                             <Link
                               href={`/subjects/${r.subjectId}`}
-                              className="flex h-7 shrink-0 items-center rounded-full border border-zinc-300 px-3 text-xs transition-colors hover:bg-zinc-900 hover:text-white"
+                              className={buttonClass({ variant: "neutral", size: "sm" })}
                             >
                               퀴즈 다시 보기
                             </Link>
                           ) : (
                             <form action={setUnitStatus.bind(null, u.id, "done")}>
-                              <button className="h-7 shrink-0 rounded-full border border-zinc-300 px-3 text-xs transition-colors hover:bg-zinc-900 hover:text-white">
+                              <Button variant="success" size="sm">
+                                <Check className="size-4" strokeWidth={3} aria-hidden />
                                 완료
-                              </button>
+                              </Button>
                             </form>
                           )}
                         </li>
                       ))}
                     </ul>
                   </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <section className="flex flex-col gap-3">
-            <h2 className="font-semibold">오늘의 학습 날씨</h2>
-            {overall && (
-              <MascotSays mood={overall.tone}>
-                {overall.message}
-                <span className="mt-0.5 block text-xs text-zinc-500">{overall.summary}</span>
-              </MascotSays>
-            )}
-            {subjects && subjects.length > 0 ? (
-              <ul className="flex flex-col gap-3">
-                {cards.map((s) => {
-                  const { weather } = s;
-                  const done = s.units.filter(isDone).length;
-                  const percent = s.units.length ? Math.round((done / s.units.length) * 100) : 0;
-                  return (
-                    <li
-                      key={s.id}
-                      className={`flex flex-col gap-2 rounded-2xl border px-4 py-4 ${TONE_CLASS[weather.tone]}`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <Link href={`/subjects/${s.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                          <span className="text-3xl" aria-hidden>
-                            {weather.icon}
-                          </span>
-                          <span className="flex min-w-0 flex-1 flex-col gap-1">
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              <span className="truncate font-medium hover:underline">{s.name}</span>
-                              {s.exam_date && <DDayBadge days={daysUntil(s.exam_date)} />}
-                            </span>
-                            {s.units.length > 0 ? (
-                              <span className="flex items-center gap-2">
-                                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/70 ring-1 ring-black/5">
-                                  <span
-                                    className="block h-full rounded-full bg-zinc-800"
-                                    style={{ width: `${percent}%` }}
-                                  />
-                                </span>
-                                <span className="shrink-0 text-xs font-semibold tabular-nums text-zinc-600">
-                                  진도 {percent}%
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="text-sm text-zinc-500">단원을 추가해 주세요</span>
-                            )}
-                          </span>
-                        </Link>
-                        <div className="flex shrink-0 items-center gap-3">
-                          <form action={deleteSubject.bind(null, s.id)}>
-                            <button
-                              className="text-sm text-zinc-400 transition-colors hover:text-red-600"
-                              aria-label={`${s.name} 삭제`}
-                            >
-                              삭제
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                      <p className="w-fit rounded-2xl rounded-tl-sm bg-white/80 px-3 py-2 text-sm leading-relaxed text-zinc-700 ring-1 ring-black/5">
-                        {weather.detail}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <MascotSays>아직 과목이 없어요. 아래에서 첫 과목을 추가해 보세요!</MascotSays>
-            )}
+                );
+              })}
+            </ul>
           </section>
+        )}
 
-          <SubjectForm />
-
-          <div className="flex items-center justify-between gap-3 text-sm text-zinc-500">
-            <span className="truncate">{user.email}</span>
-            <LogoutButton />
+        <section className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold">딱따구리 컨디션</h2>
+            {subjects && subjects.length > 0 && (
+              <Link href="/subjects/new" className={buttonClass({ variant: "neutral", size: "sm" })}>
+                <Plus className="size-4" strokeWidth={3} aria-hidden />
+                과목 추가
+              </Link>
+            )}
           </div>
-        </>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <LoginButton />
-          {error === "login" && (
-            <p className="text-sm text-red-600">
-              로그인에 실패했어요. 다시 시도해 주세요.
-            </p>
+          {subjects && subjects.length > 0 ? (
+            <ul className="flex flex-col divide-y divide-zinc-200/80">
+              {cards.map((s) => {
+                const { weather } = s;
+                const done = s.units.filter(isDone).length;
+                const percent = s.units.length ? Math.round((done / s.units.length) * 100) : 0;
+                return (
+                  <li key={s.id}>
+                    <Link href={`/subjects/${s.id}`} className="group flex items-start gap-4 py-5">
+                      {/* 날씨 색 칸: 카드 배경 대신 아이콘 자리에 날씨 의미를 남긴다 */}
+                      <span
+                        className={`flex size-14 shrink-0 items-center justify-center rounded-2xl ${TONE_CLASS[weather.tone]}`}
+                      >
+                        <WeatherIcon tone={weather.tone} emoji={weather.icon} size={44} label={weather.label} />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-bold group-hover:underline">{s.name}</span>
+                          {s.exam_date && <DDayBadge days={daysUntil(s.exam_date)} />}
+                        </span>
+                        {s.units.length > 0 ? (
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-200/70">
+                              <span
+                                className="block h-full rounded-full bg-forest"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </span>
+                            <span className="shrink-0 text-xs font-semibold tabular-nums text-zinc-600">
+                              진도 {percent}%
+                              <span className="ml-1.5 font-medium text-brand-dark">매 HP {100 - percent}%</span>
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-sm text-zinc-500">단원을 추가해 주세요</span>
+                        )}
+                        <span className="text-sm leading-relaxed text-zinc-600">{weather.detail}</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            // 빈 상태: 알 하나와 첫 과목 추가
+            <div className="flex flex-col items-center gap-5 py-8 text-center">
+              <Image src="/mascot-egg_new.png" alt="" width={84} height={108} className="pet-egg-wobble" />
+              <p className="break-keep text-zinc-600">첫 과목을 추가하면 알이 깨어날 준비를 해요</p>
+              <Link href="/subjects/new" className={buttonClass({ variant: "primary", size: "md", className: "w-full max-w-xs" })}>
+                <Plus className="size-5" strokeWidth={3} aria-hidden />
+                첫 과목 추가하기
+              </Link>
+            </div>
           )}
-        </div>
-      )}
-    </main>
+        </section>
+      </div>
+    </AppShell>
   );
 }

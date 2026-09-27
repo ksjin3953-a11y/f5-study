@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80" width="240" height="80">
+  <!-- 사이드바 맨 아래 장식: stage_new.svg의 잔디 + 작은 나무 한 그루. 같은 색과 음영을 쓴다. -->
+  <defs>
+    <radialGradient id="hill-near" cx="0.3" cy="0.05" r="1">
+      <stop offset="0" stop-color="#b6e0b1"/>
+      <stop offset="0.45" stop-color="#9fd39a"/>
+      <stop offset="1" stop-color="#7fbf8e"/>
+    </radialGradient>
+    <radialGradient id="leaf" cx="0.35" cy="0.3" r="0.75">
+      <stop offset="0" stop-color="#a6d9a3"/>
+      <stop offset="0.5" stop-color="#8acb88"/>
+      <stop offset="1" stop-color="#6bb06e"/>
+    </radialGradient>
+    <radialGradient id="trunk" cx="0.3" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#d3a47b"/>
+      <stop offset="0.5" stop-color="#c08a5e"/>
+      <stop offset="1" stop-color="#9a6a45"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <!-- 나무 그림자 -->
+  <ellipse cx="170" cy="64" rx="24" ry="5" fill="#7fbf8e" opacity="0.7" filter="url(#soft)"/>
+  <!-- 작은 나무 -->
+  <rect x="164" y="34" width="12" height="32" rx="6" fill="url(#trunk)"/>
+  <circle cx="170" cy="26" r="21" fill="url(#leaf)"/>
+  <ellipse cx="163" cy="18" rx="9" ry="5" fill="#fff" opacity="0.45" filter="url(#soft)"/>
+
+  <!-- 잔디 바닥 -->
+  <path d="M0 64 C60 56 140 62 240 58 V80 H0 Z" fill="url(#hill-near)"/>
+  <ellipse cx="80" cy="63" rx="60" ry="3" fill="#fff" opacity="0.35" filter="url(#soft)"/>
+  <!-- 풀 덤불 -->
+  <circle cx="34" cy="64" r="10" fill="url(#leaf)"/>
+  <circle cx="48" cy="67" r="7" fill="url(#leaf)"/>
+</svg>

@@ -46,10 +46,10 @@ function Umbrella({ layer, storm }: { layer: "handle" | "canopy"; storm: boolean
           <g>
             <path
               d="M-2 38 Q48 -18 98 38 Q85.5 30 73 38 Q60.5 30 48 38 Q35.5 30 23 38 Q10.5 30 -2 38 Z"
-              fill="#e0312b"
+              className="fill-brand"
             />
             <path d="M-2 38 Q48 -18 98 38" fill="none" stroke="#ff6b61" strokeWidth="1.2" opacity="0.7" />
-            <g stroke="#a61f1b" strokeWidth="1.1" strokeLinecap="round">
+            <g className="stroke-brand-dark" strokeWidth="1.1" strokeLinecap="round">
               <line x1="48" y1="10" x2="23" y2="38" />
               <line x1="48" y1="10" x2="48" y2="38" />
               <line x1="48" y1="10" x2="73" y2="38" />
@@ -95,8 +95,7 @@ function MascotFigure({ width, mood }: { width: number; mood: Mood }) {
   const height = Math.round(width * RATIO);
   const umbrella = mood === "rainy" || mood === "stormy";
   const storm = mood === "stormy";
-  const bodyClass =
-    mood === "sunny" ? "mascot-hop" : mood === "cloudy" ? "mascot-sway" : storm ? "mascot-shiver" : "";
+  const bodyClass = moodMotion(mood);
 
   return (
     <div
@@ -147,6 +146,30 @@ function MascotFigure({ width, mood }: { width: number; mood: Mood }) {
   );
 }
 
+// 마스코트 말풍선. 꼬리(아래 모서리)가 캐릭터가 선 쪽(tail)을 가리킨다.
+export function SpeechBubble({
+  children,
+  tail = "left",
+  className = "",
+}: {
+  children: React.ReactNode;
+  tail?: "left" | "right";
+  className?: string;
+}) {
+  return (
+    <div
+      className={`min-w-0 rounded-2xl ${tail === "left" ? "rounded-bl-sm" : "rounded-br-sm"} bg-white px-3 py-2 text-sm leading-relaxed text-zinc-800 shadow-sm ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// 날씨에 맞춘 몸짓(통통/살랑/덜덜). 우산 없이 몸짓만 필요할 때 쓴다.
+export function moodMotion(mood: Mood) {
+  return mood === "sunny" ? "mascot-hop" : mood === "cloudy" ? "mascot-sway" : mood === "stormy" ? "mascot-shiver" : "";
+}
+
 export function MascotSays({
   children,
   size = "md",
@@ -161,9 +184,7 @@ export function MascotSays({
   return (
     <div className={`flex items-end gap-2 ${className}`}>
       <MascotFigure width={WIDTHS[size]} mood={mood} />
-      <div className="min-w-0 rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm leading-relaxed text-zinc-800 shadow-sm ring-1 ring-zinc-200">
-        {children}
-      </div>
+      <SpeechBubble>{children}</SpeechBubble>
     </div>
   );
 }

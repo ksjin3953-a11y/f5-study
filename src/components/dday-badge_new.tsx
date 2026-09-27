@@ -11,7 +11,7 @@ export function DDayBadge({ days }: { days: number }) {
           ? "bg-orange-100 text-orange-700"
           : "bg-sky-100 text-sky-700";
   return (
-    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${tone}`}>
+    <span className={`shrink-0 rounded-full px-2 py-0.5 font-display text-xs tabular-nums ${tone}`}>
       {dDayLabel(days)}
     </span>
   );

@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400">
+  <!-- 무대 풍경: 딱따구리와 같은 3D 클레이 느낌. 모든 도형은 왼쪽 위가 밝고 오른쪽 아래가 어둡다.
+       오른쪽 아래 1/3(x 800~1200)은 비워 둔다. 딱따구리와 말풍선이 올라갈 자리. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfeafb"/>
+      <stop offset="1" stop-color="#eaf6ff"/>
+    </linearGradient>
+
+    <radialGradient id="cloud" cx="0.35" cy="0.25" r="0.85">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dde9f5"/>
+    </radialGradient>
+    <radialGradient id="hill-far" cx="0.3" cy="0.05" r="1">
+      <stop offset="0" stop-color="#d2ecca"/>
+      <stop offset="0.45" stop-color="#bfe3b4"/>
+      <stop offset="1" stop-color="#a6d4a2"/>
+    </radialGradient>
+    <radialGradient id="hill-near" cx="0.3" cy="0.05" r="1">
+      <stop offset="0" stop-color="#b6e0b1"/>
+      <stop offset="0.45" stop-color="#9fd39a"/>
+      <stop offset="1" stop-color="#7fbf8e"/>
+    </radialGradient>
+    <radialGradient id="leaf" cx="0.35" cy="0.3" r="0.75">
+      <stop offset="0" stop-color="#a6d9a3"/>
+      <stop offset="0.5" stop-color="#8acb88"/>
+      <stop offset="1" stop-color="#6bb06e"/>
+    </radialGradient>
+    <radialGradient id="trunk" cx="0.3" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#d3a47b"/>
+      <stop offset="0.5" stop-color="#c08a5e"/>
+      <stop offset="1" stop-color="#9a6a45"/>
+    </radialGradient>
+    <radialGradient id="hole" cx="0.6" cy="0.65" r="0.7">
+      <stop offset="0" stop-color="#5a3a24"/>
+      <stop offset="1" stop-color="#7b5236"/>
+    </radialGradient>
+
+    <!-- 광택과 그림자를 부드럽게 -->
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <filter id="softer" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+
+    <!-- 통통한 뭉게구름 (가운데 기준 가로 160) -->
+    <g id="cloud-shape">
+      <path d="M-80 34 a26 26 0 0 1 6 -46 a44 44 0 0 1 80 -22 a34 34 0 0 1 62 24 a24 24 0 0 1 12 44 q0 14 -16 14 h-128 q-16 0 -16 -14 z" fill="url(#cloud)"/>
+      <ellipse cx="-14" cy="-26" rx="30" ry="11" fill="#fff" opacity="0.9" filter="url(#soft)"/>
+    </g>
+
+    <!-- 막대사탕 나무: 원 모양 잎 + 둥근 기둥 (밑동 기준) -->
+    <g id="crown-hl">
+      <ellipse cx="-14" cy="-16" rx="18" ry="10" fill="#fff" opacity="0.45" filter="url(#soft)"/>
+    </g>
+  </defs>
+
+  <!-- 하늘 -->
+  <rect width="1200" height="400" fill="url(#sky)"/>
+
+  <!-- 구름 -->
+  <use href="#cloud-shape" transform="translate(190 88)"/>
+  <use href="#cloud-shape" transform="translate(610 58) scale(0.7)"/>
+  <use href="#cloud-shape" transform="translate(960 104) scale(0.85)"/>
+
+  <!-- 먼 언덕 -->
+  <path d="M0 238 C140 186 290 192 420 222 C560 254 690 196 840 198 C990 200 1100 232 1200 214 V400 H0 Z" fill="url(#hill-far)"/>
+  <g fill="#fff" opacity="0.35" filter="url(#softer)">
+    <ellipse cx="220" cy="206" rx="110" ry="12"/>
+    <ellipse cx="820" cy="210" rx="130" ry="12"/>
+  </g>
+
+  <!-- 가까운 언덕 -->
+  <path d="M0 300 C120 262 260 262 380 288 C520 318 640 298 760 292 C900 286 1050 296 1200 282 V400 H0 Z" fill="url(#hill-near)"/>
+  <g fill="#fff" opacity="0.3" filter="url(#softer)">
+    <ellipse cx="170" cy="276" rx="120" ry="10"/>
+    <ellipse cx="960" cy="290" rx="150" ry="10"/>
+  </g>
+
+  <!-- 나무 그림자 -->
+  <g fill="#7fbf8e" opacity="0.7" filter="url(#soft)">
+    <ellipse cx="96" cy="322" rx="46" ry="9"/>
+    <ellipse cx="222" cy="312" rx="32" ry="7"/>
+    <ellipse cx="372" cy="342" rx="82" ry="13"/>
+    <ellipse cx="530" cy="326" rx="44" ry="9"/>
+    <ellipse cx="668" cy="318" rx="32" ry="7"/>
+  </g>
+
+  <!-- 나무 1 -->
+  <rect x="84" y="236" width="22" height="88" rx="11" fill="url(#trunk)"/>
+  <circle cx="95" cy="214" r="50" fill="url(#leaf)"/>
+  <use href="#crown-hl" transform="translate(95 214) scale(1.4)"/>
+
+  <!-- 나무 2 (작은) -->
+  <rect x="213" y="246" width="16" height="68" rx="8" fill="url(#trunk)"/>
+  <circle cx="221" cy="232" r="34" fill="url(#leaf)"/>
+  <use href="#crown-hl" transform="translate(221 232)"/>
+
+  <!-- 나무 3: 굵은 고목. 줄기에 딱따구리가 쫀 구멍 -->
+  <path d="M338 344 C340 300 344 240 346 180 H398 C400 240 404 300 408 344 Q373 356 338 344 Z" fill="url(#trunk)"/>
+  <ellipse cx="358" cy="230" rx="7" ry="40" fill="#fff" opacity="0.28" filter="url(#soft)"/>
+  <g>
+    <ellipse cx="366" cy="246" rx="9" ry="11" fill="url(#hole)"/>
+    <ellipse cx="385" cy="282" rx="7.5" ry="9" fill="url(#hole)"/>
+    <ellipse cx="364" cy="310" rx="6.5" ry="8" fill="url(#hole)"/>
+    <!-- 구멍 아래 테두리 빛 -->
+    <g fill="none" stroke="#d9ab82" stroke-width="2" stroke-linecap="round" opacity="0.8">
+      <path d="M358 252 q8 8 16 0"/>
+      <path d="M379 287 q6 6 12 0"/>
+      <path d="M359 315 q5 5 10 0"/>
+    </g>
+  </g>
+  <circle cx="330" cy="168" r="48" fill="url(#leaf)"/>
+  <circle cx="418" cy="164" r="50" fill="url(#leaf)"/>
+  <circle cx="372" cy="128" r="66" fill="url(#leaf)"/>
+  <use href="#crown-hl" transform="translate(366 122) scale(1.2)"/>
+  <use href="#crown-hl" transform="translate(410 160)"/>
+
+  <!-- 나무 4 -->
+  <rect x="519" y="246" width="20" height="80" rx="10" fill="url(#trunk)"/>
+  <circle cx="529" cy="226" r="46" fill="url(#leaf)"/>
+  <use href="#crown-hl" transform="translate(529 226) scale(1.3)"/>
+
+  <!-- 나무 5 (작은) -->
+  <rect x="660" y="256" width="16" height="62" rx="8" fill="url(#trunk)"/>
+  <circle cx="668" cy="244" r="32" fill="url(#leaf)"/>
+  <use href="#crown-hl" transform="translate(668 244) scale(0.9)"/>
+
+  <!-- 맨 앞 잔디 바닥 -->
+  <path d="M0 356 C200 336 420 348 600 346 C820 344 1000 354 1200 342 V400 H0 Z" fill="url(#hill-near)"/>
+  <g fill="#fff" opacity="0.35" filter="url(#soft)">
+    <ellipse cx="300" cy="350" rx="160" ry="6"/>
+    <ellipse cx="930" cy="352" rx="180" ry="6"/>
+  </g>
+  <!-- 동글동글 풀 덤불 -->
+  <g fill="url(#leaf)">
+    <circle cx="30" cy="356" r="18"/><circle cx="56" cy="360" r="14"/>
+    <circle cx="452" cy="352" r="14"/><circle cx="472" cy="356" r="11"/>
+    <circle cx="742" cy="350" r="13"/><circle cx="760" cy="354" r="10"/>
+  </g>
+</svg>

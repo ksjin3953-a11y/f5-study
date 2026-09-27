@@ -1,12 +1,15 @@
+import { SatelliteDish, Signal } from "lucide-react";
 import { josa } from "@/lib/game_new";
+import { WeatherIcon } from "@/components/weather-icon_new";
 import { futureMeForecast } from "@/lib/future-me-llm_new";
 
 // "시험 날의 나" 예보 말풍선. 내 딱따구리 패널 맨 위에서 아래 딱따구리를 가리킨다.
 export function ForecastBubble({ petName, children }: { petName: string; children: React.ReactNode }) {
   return (
     <div className="relative rounded-2xl bg-zinc-900 px-4 py-3 text-sm leading-relaxed text-white shadow-sm">
-      <span className="mb-1 block text-xs font-semibold tracking-wide text-zinc-400">
-        📡 시험 날의 나에게서 온 예보 · {josa(petName, "이", "가")} 전해요
+      <span className="mb-1 flex items-center gap-1 text-xs font-semibold tracking-wide text-zinc-400">
+        <SatelliteDish className="size-3.5 shrink-0 text-brand-light" aria-hidden />
+        시험 날의 나에게서 온 예보 · {josa(petName, "이", "가")} 전해요
       </span>
       {children}
       {/* 말풍선 꼬리: 아래 딱따구리를 가리킨다 */}
@@ -24,9 +27,13 @@ export async function FutureMeBubble({
   if (!forecast) return null;
   return (
     <ForecastBubble petName={petName}>
-      <span className="mr-1" aria-hidden>
-        {forecast.weather}
-      </span>
+      {/* 이미지는 과목 날씨(tone)로 고르고, 없으면 AI가 고른 이모지를 보여 준다 */}
+      <WeatherIcon
+        tone={input.weather.tone}
+        emoji={forecast.weather}
+        size={20}
+        className="mr-1 align-[-0.25em]"
+      />
       {forecast.message}
     </ForecastBubble>
   );
@@ -35,7 +42,10 @@ export async function FutureMeBubble({
 export function FutureMeLoading({ petName }: { petName: string }) {
   return (
     <ForecastBubble petName={petName}>
-      <span className="animate-pulse text-zinc-400">예보 수신 중… 📶</span>
+      <span className="inline-flex animate-pulse items-center gap-1 text-zinc-400">
+        예보 수신 중…
+        <Signal className="size-4 text-sky" aria-hidden />
+      </span>
     </ForecastBubble>
   );
 }

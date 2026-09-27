@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { createRecord, type RecordFormState } from "@/app/record-actions_new";
+import { MascotSays } from "@/components/mascot_new";
+import { Button } from "@/components/ui-button_new";
 
 const initialState: RecordFormState = { error: null, savedAt: null };
 
@@ -20,8 +22,9 @@ export function RecordForm({ unitId }: { unitId: string }) {
       <textarea
         name="memo"
         rows={2}
+        aria-label="메모"
         placeholder="메모 (선택): 오늘 공부한 내용, 헷갈린 부분"
-        className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+        className="field text-base"
       />
       <div className="flex items-center gap-2 text-sm">
         <span className="text-zinc-600">퀴즈</span>
@@ -31,7 +34,8 @@ export function RecordForm({ unitId }: { unitId: string }) {
           min={0}
           inputMode="numeric"
           placeholder="맞은 수"
-          className="h-9 w-20 rounded-lg border border-zinc-300 px-2"
+          aria-label="맞은 수"
+          className="field h-11 w-24 px-3 text-base"
         />
         <span>/</span>
         <input
@@ -40,17 +44,19 @@ export function RecordForm({ unitId }: { unitId: string }) {
           min={1}
           inputMode="numeric"
           placeholder="전체"
-          className="h-9 w-20 rounded-lg border border-zinc-300 px-2"
+          aria-label="전체 문제 수"
+          className="field h-11 w-24 px-3 text-base"
         />
         <span className="text-xs text-zinc-400">(선택)</span>
       </div>
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-      <button
-        disabled={pending}
-        className="h-9 rounded-full bg-zinc-900 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-      >
-        {pending ? "저장 중…" : "기록 남기기"}
-      </button>
+      {state.error && (
+        <MascotSays size="sm" mood="rainy">
+          {state.error}
+        </MascotSays>
+      )}
+      <Button disabled={pending} variant="success" size="sm" className="w-full">
+        {pending ? "저장 중…" : "기록 저장"}
+      </Button>
     </form>
   );
 }

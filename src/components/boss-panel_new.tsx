@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { PartyPopper } from "lucide-react";
 import { BOSS_BONUS_INSECTS } from "@/lib/game_new";
 
 // 과목 보스(매). HP = 아직 끝내지 않은 단원 수, 시험일 = 보스가 오는 날.
@@ -20,13 +21,20 @@ function Portrait({ className, defeated }: { className: string; defeated: boolea
           <path
             key={deg}
             d="M50 -4 L56 12 L44 12 Z"
-            fill={defeated ? "#9ca3af" : "#e5404f"}
+            className={defeated ? "fill-gray-400" : "fill-boss-accent"}
             transform={`rotate(${deg} 50 50)`}
           />
         ))}
-        <circle cx="50" cy="50" r="41" fill="#2b2528" />
-        <circle cx="50" cy="50" r="41" fill="none" stroke={defeated ? "#9ca3af" : "#e5404f"} strokeWidth="6" />
-        <circle cx="50" cy="50" r="36" fill="none" stroke="#000" strokeOpacity="0.25" strokeWidth="1.5" />
+        <circle cx="50" cy="50" r="41" className="fill-boss" />
+        <circle
+          cx="50"
+          cy="50"
+          r="41"
+          fill="none"
+          className={defeated ? "stroke-gray-400" : "stroke-boss-accent"}
+          strokeWidth="6"
+        />
+        <circle cx="50" cy="50" r="36" fill="none" className="stroke-black" strokeOpacity="0.25" strokeWidth="1.5" />
       </svg>
       {/* 매 전체(발까지)가 원 안에 다 보이게 */}
       <div className="absolute inset-[9px] flex items-center justify-center overflow-hidden rounded-full bg-stone-100">
@@ -54,7 +62,7 @@ export function BossMini({ remaining, total }: { remaining: number; total: numbe
   return (
     <div
       className={`flex items-center gap-2 rounded-xl px-2 py-1.5 ${
-        defeated ? "bg-emerald-50 ring-1 ring-emerald-200" : "bg-stone-900 text-white"
+        defeated ? "bg-emerald-50 ring-1 ring-emerald-200" : "bg-boss text-white"
       }`}
     >
       <Image
@@ -74,7 +82,7 @@ export function BossMini({ remaining, total }: { remaining: number; total: numbe
             style={{ width: `${(remaining / total) * 100}%` }}
           />
         </div>
-        <span className={`text-[10px] font-bold ${defeated ? "text-emerald-700" : "text-red-400"}`}>
+        <span className={`font-display text-[10px] tabular-nums ${defeated ? "text-emerald-700" : "text-red-400"}`}>
           HP {remaining}/{total}
         </span>
       </div>
@@ -100,7 +108,7 @@ export function BossPanel({
   const angry = !defeated && !passed && daysLeft !== null && daysLeft <= 7 && hpPercent >= 50;
 
   const status = defeated
-    ? `격파! 곤충 ${BOSS_BONUS_INSECTS}개를 얻었어요 🎉`
+    ? `격파! 곤충 ${BOSS_BONUS_INSECTS}개를 얻었어요`
     : passed
       ? "보스가 지나갔어요."
       : daysLeft === null
@@ -120,21 +128,21 @@ export function BossPanel({
         <div className="-ml-3 flex min-w-0 flex-1 flex-col gap-1">
           {/* 이름판 */}
           <div
-            className="flex w-fit items-center gap-2 bg-[#2b2528] py-1 pl-5 pr-6 text-white"
+            className="flex w-fit items-center gap-2 bg-boss py-1 pl-5 pr-6 font-display text-white"
             style={{ clipPath: PLATE_SHAPE }}
           >
-            <span className="text-[10px] text-[#e5404f]">✦</span>
-            <span className={`text-base font-black tracking-wide ${defeated ? "text-zinc-400" : "text-[#ff8a95]"}`}>
+            <span className="text-[10px] text-boss-accent">✦</span>
+            <span className={`text-base tracking-wide ${defeated ? "text-zinc-400" : "text-[#ff8a95]"}`}>
               BOSS
             </span>
-            <span className="text-[10px] text-[#e5404f]">✦</span>
-            <span className="text-sm font-semibold">매</span>
+            <span className="text-[10px] text-boss-accent">✦</span>
+            <span className="text-sm">매</span>
           </div>
 
           {/* HP 게이지 */}
           <div className="relative">
-            <div className="bg-[#e5404f] p-[2px]" style={{ clipPath: BAR_SHAPE }}>
-              <div className="bg-[#2b2528] p-[3px]" style={{ clipPath: BAR_SHAPE }}>
+            <div className="bg-boss-accent p-[2px]" style={{ clipPath: BAR_SHAPE }}>
+              <div className="bg-boss p-[3px]" style={{ clipPath: BAR_SHAPE }}>
                 <div className="relative h-7 overflow-hidden bg-[#3a3439]" style={{ clipPath: BAR_SHAPE }}>
                   <div
                     className="absolute inset-y-0 left-0 bg-gradient-to-b from-[#ff5a67] to-[#d8303f] transition-[width] duration-700"
@@ -143,23 +151,26 @@ export function BossPanel({
                     {/* 윗부분 광택 */}
                     <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20" />
                   </div>
-                  <span className="absolute inset-y-0 right-5 flex items-center text-xs font-bold tabular-nums text-white">
+                  <span className="absolute inset-y-0 right-5 flex items-center font-display text-xs tabular-nums text-white">
                     {(remaining * HP_PER_UNIT).toLocaleString("en-US")}
-                    <span className="ml-1 font-medium text-zinc-400">
+                    <span className="ml-1 text-zinc-400">
                       / {(total * HP_PER_UNIT).toLocaleString("en-US")}
                     </span>
                   </span>
                 </div>
               </div>
             </div>
-            <span className="absolute -right-1 top-1/2 -translate-y-1/2 text-sm text-[#e5404f]" aria-hidden>
+            <span className="absolute -right-1 top-1/2 -translate-y-1/2 text-sm text-boss-accent" aria-hidden>
               ◆
             </span>
           </div>
         </div>
       </div>
 
-      <p className={`text-xs ${defeated ? "text-emerald-700" : "text-zinc-500"}`}>{status}</p>
+      <p className={`text-xs ${defeated ? "text-emerald-700" : "text-zinc-500"}`}>
+        {status}
+        {defeated && <PartyPopper className="ml-1 inline size-3.5 align-[-0.15em] text-brand" aria-hidden />}
+      </p>
     </section>
   );
 }

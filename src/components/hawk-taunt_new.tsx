@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, buttonClass } from "@/components/ui-button_new";
 
 // 매 도발: 사이트를 켜 둔 채 한동안 공부 기록이 없으면 매가 날아와 약을 올린다.
 // 다른 탭에 가 있으면(딴짓) 브라우저 알림으로도 보낸다. 주소에 ?idle=분 을 붙이면 기다리는 시간을 바꾼다(시연용).
@@ -52,6 +53,11 @@ export function HawkTaunt({
   const openedAt = useRef<number | null>(null);
 
   const fire = useCallback(() => {
+    // 퀴즈 레슨 중이면 공부하는 중이니 도발하지 않고 조금 뒤로 미룬다(quiz_new가 표시를 단다).
+    if (document.documentElement.dataset.lesson) {
+      setSnoozeUntil(Date.now() + SNOOZE_MIN * 60_000);
+      return;
+    }
     const lines = taunts(idleMinutes(), petName, target);
     const text = lines[Math.floor(Math.random() * lines.length)];
     setMessage(text);
@@ -74,12 +80,27 @@ export function HawkTaunt({
     setSnoozeUntil(Date.now() + minutes * 60_000);
   };
 
+  // 도발이 떠 있는 중에 퀴즈 레슨이 열리면 공부하러 간 것이니 도발을 거둔다.
+  useEffect(() => {
+    if (!message) return;
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      if (root.dataset.lesson) {
+        setMessage(null);
+        setSnoozeUntil(Date.now() + SNOOZE_MIN * 60_000);
+      }
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["data-lesson"] });
+    return () => observer.disconnect();
+  }, [message]);
+
   if (!message) return null;
   // 메시지는 브라우저에서 타이머가 울린 뒤에만 보이므로 여기서 window를 봐도 된다.
   const canNotify = !asked && "Notification" in window && Notification.permission === "default";
 
   return (
-    <div className="hawk-swoop fixed inset-x-3 bottom-4 z-50 mx-auto flex max-w-md items-end gap-3 rounded-2xl bg-stone-900 px-4 py-3 text-white shadow-2xl ring-2 ring-[#e5404f]">
+    // 모바일에서는 하단 탭바(4rem + 홈 인디케이터) 위로 띄운다.
+    <div className="hawk-swoop fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-end gap-3 rounded-2xl bg-boss px-4 py-3 text-white shadow-2xl ring-2 ring-boss-accent lg:bottom-4">
       <Image src="/hawk_new.png" alt="보스 매" width={44} height={67} className="boss-angry shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <p className="text-sm font-semibold leading-snug">{message}</p>
@@ -88,21 +109,18 @@ export function HawkTaunt({
             <Link
               href={studyHref}
               onClick={() => dismiss(idleMinutes())}
-              className="flex h-8 items-center rounded-full bg-[#e5404f] px-3 text-xs font-bold hover:bg-[#ff5a67]"
+              className={buttonClass({ variant: "primary", size: "sm" })}
             >
               공부하러 가기
             </Link>
           ) : (
-            <button
-              onClick={() => dismiss(idleMinutes())}
-              className="h-8 rounded-full bg-[#e5404f] px-3 text-xs font-bold hover:bg-[#ff5a67]"
-            >
+            <Button onClick={() => dismiss(idleMinutes())} variant="primary" size="sm">
               지금 할게!
-            </button>
+            </Button>
           )}
           <button
             onClick={() => dismiss(SNOOZE_MIN)}
-            className="h-8 rounded-full border border-stone-600 px-3 text-xs text-stone-300 hover:bg-stone-800"
+            className="h-9 rounded-2xl border border-stone-600 px-3 text-xs text-stone-300 hover:bg-stone-800"
           >
             {SNOOZE_MIN}분만 쉴게
           </button>

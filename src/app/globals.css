@@ -8,45 +8,113 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* --font-pretendard, --font-jua는 layout.tsx의 next/font가 만든다 */
+  --font-sans: var(--font-pretendard), "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  --font-display: var(--font-jua), var(--font-sans);
+}
+
+/* 브랜드 컬러. bg-brand, text-forest, ring-boss-accent처럼 쓴다. */
+@theme {
+  /* 딱따구리 볏 빨강: 메인 버튼 */
+  --color-brand: #e0312b;
+  --color-brand-dark: #a61f1b;
+  --color-brand-light: #ffe3e1;
+  /* 숲 초록: 진도·성장 */
+  --color-forest: #3f8f5a;
+  --color-forest-dark: #2f7a4a;
+  --color-forest-light: #e3f4e8;
+  /* 하늘 */
+  --color-sky: #5fb4ee;
+  /* 보스(매) */
+  --color-boss: #2b2528;
+  --color-boss-accent: #e5404f;
+  /* 본문 글자 */
+  --color-ink: #1f1a1b;
+  /* 페이지 바탕: 크림색 한 가지로 화면 전체를 잇는다 */
+  --color-paper: #fffbf5;
+  /* 입력칸 채움: 크림보다 한 톤 진하게 */
+  --color-field: #f3eee7;
+
+  /* 무대 풍경(public/stage_new.svg)과 같은 클레이 팔레트. 볏 빨강(brand)은 배경에 쓰지 않는다. */
+  --color-stage-sky-top: #cfeafb;
+  --color-stage-sky-bottom: #eaf6ff;
+  --color-stage-hill-far: #bfe3b4;
+  --color-stage-hill-near: #9fd39a;
+  --color-stage-hill-shade: #7fbf8e;
+  --color-stage-trunk: #c08a5e;
+  --color-stage-trunk-shade: #9a6a45;
+  --color-stage-leaf: #8acb88;
+  --color-stage-leaf-shade: #6bb06e;
+  --color-stage-cloud: #ffffff;
+  --color-stage-cloud-shade: #dde9f5;
+  /* 날씨별 하늘 덧칠 (무대 배너) */
+  --color-stage-cloudy: #dce6ef;
+  --color-stage-rainy: #b9c9da;
+  --color-stage-stormy: #8f97ae;
 }
 
 body {
-  background: #bfe4fb;
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
-/* 배경: 파란 하늘 + 아래쪽 숲. 스크롤해도 제자리에 있도록 고정 레이어로 깐다. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    url("/forest_new.svg") repeat-x left bottom / 400px 180px,
-    radial-gradient(ellipse 90px 28px at 18% 16%, #fff 60%, transparent 62%),
-    radial-gradient(ellipse 60px 20px at 24% 13%, #fff 60%, transparent 62%),
-    radial-gradient(ellipse 110px 30px at 82% 26%, #fff 60%, transparent 62%),
-    radial-gradient(ellipse 70px 22px at 76% 23%, #fff 60%, transparent 62%),
-    linear-gradient(#5fb4ee, #a9dcfa 55%, #d9f1ff);
+/* 포커스·스크롤로 요소를 화면에 맞출 때 고정된 하단 버튼/탭바(모바일은 상단 바도) 밑으로 들어가지 않게 한다.
+   모바일 키보드가 올라와도 입력칸이 과목 추가의 "다음" 버튼에 가리지 않는다. */
+html {
+  scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+}
+@media (width < 64rem) {
+  html {
+    scroll-padding-top: calc(4.5rem + env(safe-area-inset-top));
+  }
 }
 
-/* 내용은 하늘 위에 뜬 반투명 흰 카드에 올린다. */
-.page-card {
-  margin: 1.25rem 0.75rem 3rem;
-  width: auto;
-  max-width: 28rem;
-  border-radius: 1.75rem;
-  background: rgb(255 255 255 / 0.92);
-  box-shadow: 0 12px 40px rgb(15 60 100 / 0.18);
-  backdrop-filter: blur(6px);
-}
-@media (min-width: 30rem) {
-  .page-card {
-    margin: 2rem auto 3rem;
+/* 입력칸: 테두리 없이 채움 배경. 포커스하면 흰 바탕 + brand 링.
+   components 레이어라서 h-11, text-base 같은 유틸리티로 덮어쓸 수 있다. */
+@layer components {
+  .field {
+    display: block;
     width: 100%;
+    min-width: 0;
+    height: 3.5rem;
+    padding-inline: 1.25rem;
+    border: 0;
+    border-radius: 1rem;
+    background: var(--color-field);
+    color: var(--color-ink);
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+    outline: none;
+    appearance: none;
+    transition: background-color 0.15s, box-shadow 0.15s;
+  }
+  .field::placeholder {
+    color: var(--color-zinc-400, #9f9fa9);
+  }
+  .field:focus {
+    background: #fff;
+    box-shadow: 0 0 0 2px var(--color-brand);
+  }
+  textarea.field {
+    height: auto;
+    padding-block: 0.875rem;
+    resize: vertical;
+  }
+  /* 날짜 칸도 같은 모양으로: 기본 테두리·정렬을 걷어 낸다 */
+  input[type="date"].field {
+    display: flex;
+    align-items: center;
+  }
+  input[type="date"].field::-webkit-date-and-time-value {
+    text-align: left;
+  }
+  /* 날짜 글자가 남는 폭을 차지해서 달력 아이콘이 오른쪽 끝에 붙는다 */
+  input[type="date"].field::-webkit-datetime-edit {
+    flex: 1;
+  }
+  input[type="date"].field::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
   }
 }
 
@@ -254,7 +322,116 @@ body::before {
   transform: rotate(-12deg) translateY(6%);
 }
 
+/* 보스 등장 뒤 제목·선택지가 이어서 떠오른다 */
+.boss-reveal {
+  animation: boss-reveal 0.4s ease-out 0.45s both;
+}
+@keyframes boss-reveal {
+  0% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ── 단원 나무 경로 ───────────────────────────── */
+
+/* 지금 하는 단원: 바깥으로 퍼지는 링 */
+.node-pulse {
+  animation: node-pulse 1.8s ease-out infinite;
+}
+@keyframes node-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(224 49 43 / 0.45); }
+  70%, 100% { box-shadow: 0 0 0 18px rgb(224 49 43 / 0); }
+}
+
+/* 아래에서 올라오는 시트·결과 바 */
+.sheet-up {
+  animation: sheet-up 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes sheet-up {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
+/* ── AI 퀴즈 레슨 ───────────────────────────── */
+
+/* 문제 만드는 중: 딱따구리가 나무를 콕콕 쫀다 */
+.mascot-peck {
+  transform-origin: 50% 100%;
+  animation: mascot-peck 0.25s ease-in-out infinite alternate;
+}
+@keyframes mascot-peck {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(12deg); }
+}
+/* "콕!" 글자가 튀어 오른다 */
+.peck-pop {
+  animation: peck-pop 0.5s ease-out infinite;
+}
+@keyframes peck-pop {
+  0% { transform: translateY(6px) scale(0.6); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(-14px) scale(1.1); opacity: 0; }
+}
+/* 통과: "매 HP -1,000!"이 떠오른다 */
+.hp-float {
+  animation: hp-float 1.6s ease-out 0.3s both;
+}
+@keyframes hp-float {
+  0% { transform: translateY(12px) scale(0.8); opacity: 0; }
+  25% { transform: translateY(0) scale(1.08); opacity: 1; }
+  100% { transform: translateY(-6px) scale(1); opacity: 1; }
+}
+
+/* ── 길 내기 · 자료 곳간 ───────────────────────────── */
+
+/* 종이(두루마리)가 나무 구멍 속으로 쏙 들어간다 */
+.slip-in {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: slip-in 1.3s ease-in infinite;
+}
+@keyframes slip-in {
+  0% { transform: translateY(-40%) scale(1); opacity: 0; }
+  15% { opacity: 1; }
+  70% { transform: translateY(30%) scale(0.7); opacity: 1; }
+  100% { transform: translateY(45%) scale(0.5); opacity: 0; }
+}
+
+/* 위에서 톡 떨어지듯 등장 (미리보기 줄, 새로 생긴 마디). 지연은 style로 준다. */
+.drop-in {
+  animation: drop-in 0.4s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+@keyframes drop-in {
+  0% { transform: translateY(-14px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* 쪼는 동안 줄기에 빈 마디가 하나씩 생긴다 */
+.knot-pop {
+  animation: knot-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes knot-pop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* 자료 칩에 올리면 경로의 해당 마디가 살짝 커진다 (transform과 겹치지 않게 scale 속성) */
+.node-hint {
+  scale: 1.08;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .slip-in,
+  .drop-in,
+  .knot-pop,
+  .node-pulse,
+  .sheet-up,
+  .mascot-peck,
+  .peck-pop,
+  .hp-float,
+  .hawk-swoop,
+  .boss-reveal,
+  .pet-egg-wobble,
+  .pet-grow,
   .pet-food-drop,
   .pet-munch,
   .pet-xp-float,
