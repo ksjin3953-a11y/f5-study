@@ -73,9 +73,9 @@ export function buildPlan(subjects: SubjectLike[]): Plan {
       ((!!u.completed_at && seoulDate(u.completed_at) === today) ||
         !!u.quiz_results?.some((q) => q.passed && seoulDate(q.created_at) === today));
 
-    // 오늘 끝낸 단원 → 하는 중 → 복습 → 목차 순서 (오늘의 추천과 같은 순서)
+    // 오늘 끝낸 단원 → 복습(미루면 더 잊힌다) → 하는 중 → 목차 순서 (오늘의 추천과 같은 순서)
     const rank = (u: PlanItem & { status: string }) =>
-      u.done ? 0 : u.status === "doing" ? 1 : u.review ? 2 : 3;
+      u.done ? 0 : u.review ? 1 : u.status === "doing" ? 2 : 3;
     const items = s.units
       .filter((u) => !isDone(u) || isFading(u) || doneToday(u))
       .map((u) => ({
