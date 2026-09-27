@@ -58,3 +58,32 @@ export async function deleteSubject(id: string) {
 
   refresh();
 }
+
+// 중간고사 설정. units: 0 = 중간고사 없음(보스는 기말 하나), null = 아직 안 정함, N = 앞에서부터 N단원.
+export async function setMidterm(
+  subjectId: string,
+  midterm: { units: number | null; date: string | null }
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요해요." };
+
+  const units = midterm.units === null ? null : Math.max(0, Math.floor(midterm.units));
+  const date = units && midterm.date && /^\d{4}-\d{2}-\d{2}$/.test(midterm.date) ? midterm.date : null;
+  if (units && !date) return { error: "중간고사 날짜를 입력해 주세요." };
+
+  const { error } = await supabase
+    .from("subjects")
+    .update({ midterm_units: units, midterm_date: date })
+    .eq("id", subjectId)
+    .eq("user_id", user.id);
+  if (error) {
+    console.error("setMidterm failed:", error);
+    return { error: "저장하지 못했어요. (DB에 중간고사 칸이 있는지 확인해 주세요)" };
+  }
+
+  refresh();
+  return { error: null };
+}

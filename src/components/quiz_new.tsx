@@ -8,6 +8,7 @@ import { makeQuiz, submitQuiz, type QuizQuestion } from "@/app/quiz-actions_new"
 import { MascotSays } from "@/components/mascot_new";
 import { Button } from "@/components/ui-button_new";
 import { FOODS } from "@/lib/game_new";
+import { BOSSES, type ExamKind } from "@/lib/exam_new";
 
 // 단원 AI 퀴즈를 듀오링고식 레슨으로: 한 화면에 한 문제 → 확인 → 결과 바 → 마지막에 채점.
 // 문제 생성(makeQuiz)·채점(맞힌 개수 → submitQuiz, 3/5 통과)은 예전과 같다.
@@ -38,7 +39,7 @@ export function QuizLesson({
 }: {
   unitId: string;
   review: boolean; // 끝낸 단원의 복습 퀴즈인지 (머리말만 다르다)
-  boss: { remaining: number; total: number };
+  boss: { remaining: number; total: number; kind?: ExamKind };
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ step: "loading" });
@@ -308,7 +309,7 @@ function Result({
   onClose,
 }: {
   phase: ResultPhase;
-  boss: { remaining: number; total: number };
+  boss: { remaining: number; total: number; kind?: ExamKind };
   onRetry: () => void;
   onClose: () => void;
 }) {
@@ -344,9 +345,11 @@ function Result({
             ) : null
           ) : hits ? (
             <div className="flex w-full flex-col items-center gap-2">
-              <p className="hp-float font-display text-3xl text-brand-dark">매 HP -{HP_PER_UNIT.toLocaleString("en-US")}!</p>
+              <p className="hp-float font-display text-3xl text-brand-dark">
+                {BOSSES[boss.kind ?? "final"].name} HP -{HP_PER_UNIT.toLocaleString("en-US")}!
+              </p>
               <div className="flex w-full max-w-sm items-center gap-3 rounded-2xl bg-boss px-4 py-3">
-                <Image src="/hawk_new.png" alt="" width={28} height={43} />
+                <Image src={BOSSES[boss.kind ?? "final"].image} alt="" width={boss.kind === "mid" ? 33 : 28} height={43} />
                 <div className="flex flex-1 flex-col gap-1 text-left">
                   <div className="h-3 overflow-hidden rounded-full bg-[#3a3439]">
                     <div

@@ -1,8 +1,10 @@
 import Image from "next/image";
 import { PartyPopper } from "lucide-react";
 import { BOSS_BONUS_INSECTS } from "@/lib/game_new";
+import { BOSSES, type ExamKind } from "@/lib/exam_new";
 
 // 과목 보스(매). HP = 아직 끝내지 않은 단원 수, 시험일 = 보스가 오는 날.
+// 중간고사가 있으면 아기 매(중간 보스) → 부모 매(기말 보스) 순서로 온다(lib/exam_new.ts).
 // 게임 보스 HP 바 모양: 가시 달린 원형 초상화 + BOSS 이름판 + 양 끝이 뾰족한 게이지
 const HP_PER_UNIT = 1000; // 화면에 보이는 HP 단위(단원 1개 = 1,000)
 
@@ -13,7 +15,8 @@ const PLATE_SHAPE = "polygon(10px 0, calc(100% - 14px) 0, 100% 100%, 0 100%)";
 // 초상화 테두리의 가시 8개
 const SPIKES = Array.from({ length: 8 }, (_, i) => (i * 360) / 8 + 22.5);
 
-function Portrait({ className, defeated }: { className: string; defeated: boolean }) {
+function Portrait({ className, defeated, kind }: { className: string; defeated: boolean; kind: ExamKind }) {
+  const boss = BOSSES[kind];
   return (
     <div className={`relative h-[76px] w-[76px] shrink-0 ${className}`}>
       <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
@@ -39,9 +42,9 @@ function Portrait({ className, defeated }: { className: string; defeated: boolea
       {/* 매 전체(발까지)가 원 안에 다 보이게 */}
       <div className="absolute inset-[9px] flex items-center justify-center overflow-hidden rounded-full bg-stone-100">
         <Image
-          src="/hawk_new.png"
-          alt="보스 매"
-          width={32}
+          src={boss.image}
+          alt={`보스 ${boss.name}`}
+          width={kind === "mid" ? 38 : 32}
           height={49}
           className={defeated ? "grayscale" : ""}
         />
@@ -56,9 +59,18 @@ function Portrait({ className, defeated }: { className: string; defeated: boolea
 }
 
 // 화면 오른쪽 위에 두는 작은 보스 카드(매 그림 + HP 바)
-export function BossMini({ remaining, total }: { remaining: number; total: number }) {
+export function BossMini({
+  remaining,
+  total,
+  kind = "final",
+}: {
+  remaining: number;
+  total: number;
+  kind?: ExamKind;
+}) {
   if (total === 0) return null;
   const defeated = remaining === 0;
+  const boss = BOSSES[kind];
   return (
     <div
       className={`flex items-center gap-2 rounded-xl px-2 py-1.5 ${
@@ -66,15 +78,15 @@ export function BossMini({ remaining, total }: { remaining: number; total: numbe
       }`}
     >
       <Image
-        src="/hawk_new.png"
-        alt="보스 매"
-        width={26}
+        src={boss.image}
+        alt={`보스 ${boss.name}`}
+        width={kind === "mid" ? 31 : 26}
         height={40}
         className={defeated ? "boss-defeated" : "boss-hover"}
       />
       <div className="flex w-16 flex-col gap-1">
         <span className={`text-[10px] font-semibold ${defeated ? "text-emerald-700" : "text-stone-300"}`}>
-          {defeated ? "격파!" : "보스 · 매"}
+          {defeated ? "격파!" : `${kind === "mid" ? "중간" : "보스"} · ${boss.name}`}
         </span>
         <div className={`h-1.5 overflow-hidden rounded-full ${defeated ? "bg-emerald-100" : "bg-stone-700"}`}>
           <div
@@ -94,12 +106,18 @@ export function BossPanel({
   remaining,
   total,
   daysLeft,
+  kind = "final",
+  after,
 }: {
   remaining: number;
   total: number;
   daysLeft: number | null; // 시험일이 없으면 null
+  kind?: ExamKind;
+  // 기말 보스일 때 중간 보스가 어떻게 됐는지: 잡았음 / 중간고사가 지나감
+  after?: "defeated" | "over";
 }) {
   if (total === 0) return null;
+  const boss = BOSSES[kind];
 
   const defeated = remaining === 0;
   const passed = daysLeft !== null && daysLeft < 0;
@@ -107,20 +125,37 @@ export function BossPanel({
   // 시험이 가깝고 HP가 많이 남았으면 보스가 흥분한다.
   const angry = !defeated && !passed && daysLeft !== null && daysLeft <= 7 && hpPercent >= 50;
 
-  const status = defeated
-    ? `격파! 곤충 ${BOSS_BONUS_INSECTS}개를 얻었어요`
-    : passed
-      ? "보스가 지나갔어요."
-      : daysLeft === null
-        ? "시험일을 정하면 보스가 언제 오는지 알려드려요."
-        : daysLeft === 0
-          ? "오늘 보스가 왔어요!"
-          : `시험 날 보스가 와요. 단원을 하나 끝낼 때마다 HP ${HP_PER_UNIT.toLocaleString("en-US")}씩 깎여요.`;
+  const hit = `단원을 하나 끝낼 때마다 HP ${HP_PER_UNIT.toLocaleString("en-US")}씩 깎여요.`;
+  const status =
+    kind === "mid"
+      ? defeated
+        ? "아기 매 격파! 화난 부모 매가 기말고사 날 찾아와요."
+        : daysLeft === null
+          ? `중간고사 범위를 지키는 아기 매예요. ${hit}`
+          : daysLeft === 0
+            ? "오늘 중간고사, 아기 매가 왔어요!"
+            : `중간고사 날 아기 매가 와요. ${hit}`
+      : defeated
+        ? `격파! 곤충 ${BOSS_BONUS_INSECTS}개를 얻었어요`
+        : passed
+          ? "보스가 지나갔어요."
+          : daysLeft === null
+            ? "시험일을 정하면 보스가 언제 오는지 알려드려요."
+            : daysLeft === 0
+              ? "오늘 보스가 왔어요!"
+              : `${
+                  after === "defeated"
+                    ? "아기 매를 잡았더니 부모 매가 날아왔어요! 기말고사 날 결판을 내요. "
+                    : after === "over"
+                      ? "중간고사가 끝나고 부모 매가 날아왔어요. "
+                      : "시험 날 보스가 와요. "
+                }${hit}`;
 
   return (
     <section className="flex flex-col gap-2">
       <div className="relative flex items-center">
         <Portrait
+          kind={kind}
           defeated={defeated}
           className={defeated ? "" : angry ? "boss-angry" : "boss-hover"}
         />
@@ -133,10 +168,10 @@ export function BossPanel({
           >
             <span className="text-[10px] text-boss-accent">✦</span>
             <span className={`text-base tracking-wide ${defeated ? "text-zinc-400" : "text-[#ff8a95]"}`}>
-              BOSS
+              {kind === "mid" ? "MID BOSS" : "BOSS"}
             </span>
             <span className="text-[10px] text-boss-accent">✦</span>
-            <span className="text-sm">매</span>
+            <span className="text-sm">{boss.name}</span>
           </div>
 
           {/* HP 게이지 */}

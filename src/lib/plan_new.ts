@@ -5,6 +5,7 @@
 
 import { daysUntil, isDone, needsReview, todayInSeoul } from "@/lib/weather_new";
 import { isFading } from "@/lib/memory_new";
+import { BOSSES, examPhases, examView, type ExamKind } from "@/lib/exam_new";
 
 const DAY = 86_400_000;
 const WEEKEND_WEIGHT = 0.3; // 주말 배정량(평일 = 1). 양이 적으면 주말은 아예 쉬게 된다.
@@ -23,7 +24,14 @@ type UnitLike = {
   study_logs?: { studied_at?: string }[];
 };
 
-type SubjectLike = { id: string; name: string; exam_date: string | null; units: UnitLike[] };
+type SubjectLike = {
+  id: string;
+  name: string;
+  exam_date: string | null;
+  midterm_date?: string | null;
+  midterm_units?: number | null;
+  units: UnitLike[];
+};
 
 export type PlanItem = { id: string; title: string; done: boolean; review: boolean };
 export type PlanEntry = { subjectId: string; subjectName: string; color: string; units: PlanItem[] };
@@ -31,7 +39,8 @@ export type Plan = {
   today: string;
   days: Record<string, PlanEntry[]>; // YYYY-MM-DD → 그날 할 과목별 단원
   lightDays: string[]; // 주말이라 가볍게 짠 날(시험 전 일주일이 아닌 주말)
-  exams: Record<string, { subjectId: string; subjectName: string; color: string }[]>;
+  // 시험 날: 중간고사(아기 매)·기말고사(부모 매). 중간고사가 없는 과목은 kind "final"
+  exams: Record<string, { subjectId: string; subjectName: string; color: string; kind: ExamKind; label: string }[]>;
   done: Record<string, { subjectName: string; color: string; title: string }[]>; // 지난날 끝낸 단원
 };
 
@@ -50,20 +59,28 @@ export function buildPlan(subjects: SubjectLike[]): Plan {
   const light = new Set<string>();
   const heavy = new Set<string>(); // 어떤 과목이든 시험 전 일주일에 걸린 주말
 
-  subjects.forEach((s, i) => {
+  subjects.forEach((orig, i) => {
     const color = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
-    const base = { subjectId: s.id, subjectName: s.name, color };
+    const base = { subjectId: orig.id, subjectName: orig.name, color };
 
     // 지난날 끝낸 단원 기록
-    for (const u of s.units) {
+    for (const u of orig.units) {
       if (!isDone(u) || !u.completed_at) continue;
       const day = seoulDate(u.completed_at);
-      if (day < today) (plan.done[day] ??= []).push({ subjectName: s.name, color, title: u.title });
+      if (day < today) (plan.done[day] ??= []).push({ subjectName: orig.name, color, title: u.title });
     }
 
+    // 시험 날 표시: 중간고사와 기말고사 모두
+    const { mid } = examPhases(orig, orig.units);
+    if (mid?.date) (plan.exams[mid.date] ??= []).push({ ...base, kind: "mid", label: BOSSES.mid.exam });
+    if (orig.exam_date) {
+      (plan.exams[orig.exam_date] ??= []).push({ ...base, kind: "final", label: mid ? BOSSES.final.exam : "시험" });
+    }
+
+    // 계획은 지금 상대하는 보스의 시험일·범위로 짠다(중간고사 전이면 중간 범위만).
+    const s = examView(orig);
     if (!s.exam_date) return;
     const daysLeft = daysUntil(s.exam_date);
-    (plan.exams[s.exam_date] ??= []).push(base);
     if (daysLeft < 0) return;
 
     // 계획에 넣을 단원: 안 끝낸 단원 + 기억이 옅어진 단원(복습) + 오늘 끝냈거나 오늘 퀴즈로 복습한 단원(✅)

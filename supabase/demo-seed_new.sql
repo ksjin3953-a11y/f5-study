@@ -4,9 +4,12 @@
 -- 날짜는 실행하는 순간 기준으로 계산하므로, 녹화 직전에 실행하면 된다.
 -- 먼저 이 계정으로 사이트에 한 번 로그인해 두어야 한다(계정이 있어야 함).
 --
+-- ⚠️ schema_new.sql 맨 아래 "중간고사 보스" SQL(midterm_date, midterm_units)을 먼저 실행해야 한다.
+--
 -- 녹화 장면
--- - 자료구조 ⛈️ 폭풍(D-6, 8단원 중 2개): 예보 메시지, 보스 HP, 매 도발, 오늘의 추천
--- - 확률과 통계 ⛅ 구름(D-9), 자연어처리 ☀️ 맑음(D-14)
+-- - 자료구조 ⛈️ 폭풍: 중간고사 D-6, 아기 매(중간 범위 6단원 중 2개 완료) → 기말 D-45 부모 매(4단원)
+-- - 자연어처리 ☀️ 맑음: 중간고사 3일 전 끝, 아기 매 격파 → 부모 매가 온 상태(기말 D-14)
+-- - 확률과 통계 ⛅ 구름(D-9): 중간고사 없는 과목 → 부모 매 하나, 모든 단원이 HP
 -- - 망각 곡선: 자료구조 '배열' 기억 31% → 🧠 복습할 때
 -- - 학습 메모: 자료구조 '스택' 단원 "괄호 처리 헷갈림" → AI 퀴즈가 이 부분을 물어봄
 -- - 딱따구리: 120 XP(Lv.2, 부화까지 10 XP) → 곤충 하나 먹이면 "부화했어요!"
@@ -33,9 +36,9 @@ begin
   delete from public.feedings where user_id = uid;
   delete from public.check_ins where user_id = uid;
 
-  -- ── 자료구조: ⛈️ 폭풍 (D-6, 8단원 중 2개 완료, 진도 느림) ──
-  insert into public.subjects (user_id, name, professor, exam_date, created_at)
-  values (uid, '자료구조', '김교수', today + 6, now() - interval '14 days')
+  -- ── 자료구조: ⛈️ 폭풍. 중간고사 D-6(앞 6단원, 2개 완료) → 기말 D-45(뒤 4단원) ──
+  insert into public.subjects (user_id, name, professor, exam_date, midterm_date, midterm_units, created_at)
+  values (uid, '자료구조', '김교수', today + 45, today + 6, 6, now() - interval '14 days')
   returning id into s_ds;
 
   -- 배열: 9일 전 완료, 5일 전 마지막 공부, 퀴즈 없음 → 기억 31% (복습할 때)
@@ -65,12 +68,15 @@ begin
     (uid, s_ds, '큐와 원형 큐', 3),
     (uid, s_ds, '재귀', 4),
     (uid, s_ds, '트리와 이진 트리 순회', 5),
+    -- 여기까지 중간고사 범위(아기 매), 아래는 기말고사 범위(부모 매)
     (uid, s_ds, '이진 탐색 트리', 6),
-    (uid, s_ds, '우선순위 큐와 힙', 7);
+    (uid, s_ds, '우선순위 큐와 힙', 7),
+    (uid, s_ds, '그래프 탐색 (DFS, BFS)', 8),
+    (uid, s_ds, '정렬', 9);
 
-  -- ── 확률과 통계: ⛅ 구름 (D-9, 6단원 중 3개 완료) ──
-  insert into public.subjects (user_id, name, professor, exam_date, created_at)
-  values (uid, '확률과 통계', '이교수', today + 9, now() - interval '14 days')
+  -- ── 확률과 통계: ⛅ 구름 (D-9, 6단원 중 3개 완료). 중간고사 없음(0) → 부모 매 하나 ──
+  insert into public.subjects (user_id, name, professor, exam_date, midterm_date, midterm_units, created_at)
+  values (uid, '확률과 통계', '이교수', today + 9, null, 0, now() - interval '14 days')
   returning id into s_pr;
 
   -- 12일 전 완료, 퀴즈 두 번 통과(12일 전, 5일 전) → 반감기 12일, 기억 75%
@@ -99,9 +105,9 @@ begin
     (uid, s_pr, '표본분포', 4),
     (uid, s_pr, '추정과 가설검정', 5);
 
-  -- ── 자연어처리: ☀️ 맑음 (D-14, 5단원 중 4개 완료) ──
-  insert into public.subjects (user_id, name, professor, exam_date, created_at)
-  values (uid, '자연어처리', '박교수', today + 14, now() - interval '14 days')
+  -- ── 자연어처리: ☀️ 맑음. 중간고사(앞 3단원)는 3일 전에 끝났고 아기 매 격파 → 기말 D-14 부모 매 ──
+  insert into public.subjects (user_id, name, professor, exam_date, midterm_date, midterm_units, created_at)
+  values (uid, '자연어처리', '박교수', today + 14, today - 3, 3, now() - interval '14 days')
   returning id into s_nlp;
 
   insert into public.units (user_id, subject_id, title, position, status, completed_at)

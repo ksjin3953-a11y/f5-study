@@ -6,7 +6,6 @@ import { AppShell } from "@/components/app-shell_new";
 import { setUnitStatus } from "@/app/unit-actions_new";
 import {
   dateInSeoul,
-  daysUntil,
   isDone,
   overallWeather,
   studyWeather,
@@ -15,6 +14,7 @@ import {
 } from "@/lib/weather_new";
 import { DDayBadge } from "@/components/dday-badge_new";
 import { recommendToday } from "@/lib/recommend_new";
+import { examPhases, examView } from "@/lib/exam_new";
 import { Suspense } from "react";
 import { FutureMeBubble, FutureMeLoading } from "@/components/future-me-bubble_new";
 import { SpeechBubble, moodMotion } from "@/components/mascot_new";
@@ -62,16 +62,17 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     ? await supabase
         .from("subjects")
         .select(
-          "id, name, professor, exam_date, created_at, units(id, title, status, position, completed_at, quiz_results(passed, created_at), study_logs(id, studied_at))"
+          "id, name, professor, exam_date, midterm_date, midterm_units, created_at, units(id, title, status, position, completed_at, quiz_results(passed, created_at), study_logs(id, studied_at))"
         )
         .order("exam_date", { ascending: true, nullsFirst: false })
     : { data: null };
+  // 날씨·추천은 지금 상대하는 보스(중간고사 전이면 아기 매, 아니면 부모 매)의 시험일·범위로 계산한다.
   const { recommendations, status: todayStatus, light: todayLight } = recommendToday(subjects ?? []);
   const petName = petNameOf(user);
   const game = user ? await loadGameState(supabase, subjects ?? []) : null;
   // 위험한 과목부터. 위험도가 같으면 시험일 순서(조회 순서)를 유지한다.
   const cards = (subjects ?? [])
-    .map((s) => ({ ...s, weather: studyWeather(s) }))
+    .map((s) => ({ ...s, weather: studyWeather(examView(s)), phase: examPhases(s, s.units).current }))
     .sort((a, b) => b.weather.risk - a.weather.risk);
 
   const overall = overallWeather(cards);
@@ -95,7 +96,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           weather={focus.weather}
           nextUnitTitle={
             recommendations.find((r) => r.subjectId === focus.id)?.units[0]?.title ??
-            focus.units
+            focus.phase.units
               .filter((u) => !isDone(u))
               .sort((a, b) => a.position - b.position)[0]?.title ??
             null
@@ -188,8 +189,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               tauntTarget && {
                 subjectId: tauntTarget.id,
                 subjectName: tauntTarget.name,
-                daysLeft: tauntTarget.exam_date ? daysUntil(tauntTarget.exam_date) : null,
-                remaining: tauntTarget.units.filter((u) => !isDone(u)).length,
+                daysLeft: tauntTarget.phase.daysLeft,
+                remaining: tauntTarget.phase.remaining,
               }
             }
             studyHref={tauntTarget ? `/subjects/${tauntTarget.id}` : undefined}
@@ -317,7 +318,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                         <span className="flex min-w-0 items-center gap-1.5">
                           <span className="truncate font-bold group-hover:underline">{s.name}</span>
-                          {s.exam_date && <DDayBadge days={daysUntil(s.exam_date)} />}
+                          {s.phase.kind === "mid" && (
+                            <span className="shrink-0 text-xs font-bold text-zinc-500">중간</span>
+                          )}
+                          {s.phase.daysLeft !== null && <DDayBadge days={s.phase.daysLeft} />}
                         </span>
                         {s.units.length > 0 ? (
                           <span className="flex items-center gap-2">

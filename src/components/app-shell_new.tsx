@@ -4,7 +4,7 @@ import { CalendarCheck, CalendarDays, House, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server_new";
 import { loadGameState } from "@/lib/game-state_new";
 import { petNameOf, stageForLevel } from "@/lib/game_new";
-import { daysUntil, isDone } from "@/lib/weather_new";
+import { examPhases } from "@/lib/exam_new";
 import { LogoutButton } from "@/components/auth-buttons_new";
 import { BossMini } from "@/components/boss-panel_new";
 import { DDayBadge } from "@/components/dday-badge_new";
@@ -30,19 +30,24 @@ async function loadShell() {
   } = await supabase.auth.getUser();
   const { data: subjects } = await supabase
     .from("subjects")
-    .select("id, name, exam_date, units(status, completed_at, quiz_results(passed, created_at), study_logs(id))");
+    .select(
+      "id, name, exam_date, midterm_date, midterm_units, units(position, status, completed_at, quiz_results(passed, created_at), study_logs(id))"
+    );
   const list = subjects ?? [];
   const game = await loadGameState(supabase, list);
 
+  // 가장 가까운 시험의 보스: 중간고사 전이면 아기 매, 아니면 부모 매
   const nextExam =
     list
-      .filter((s) => s.exam_date && daysUntil(s.exam_date) >= 0)
-      .map((s) => ({
+      .map((s) => ({ s, phase: examPhases(s, s.units).current }))
+      .filter(({ phase }) => phase.daysLeft !== null && phase.daysLeft >= 0)
+      .map(({ s, phase }) => ({
         id: s.id,
         name: s.name,
-        daysLeft: daysUntil(s.exam_date!),
-        total: s.units.length,
-        remaining: s.units.filter((u) => !isDone(u)).length,
+        kind: phase.kind,
+        daysLeft: phase.daysLeft!,
+        total: phase.total,
+        remaining: phase.remaining,
       }))
       .sort((a, b) => a.daysLeft - b.daysLeft)[0] ?? null;
 
@@ -205,7 +210,7 @@ function SidePanel({ shell }: { shell: Shell }) {
           </div>
           <Link href={`/subjects/${nextExam.id}`} className="flex items-center justify-between gap-3 hover:underline">
             <span className="min-w-0 truncate font-medium">{nextExam.name}</span>
-            <BossMini remaining={nextExam.remaining} total={nextExam.total} />
+            <BossMini remaining={nextExam.remaining} total={nextExam.total} kind={nextExam.kind} />
           </Link>
         </section>
       )}

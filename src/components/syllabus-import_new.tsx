@@ -9,6 +9,7 @@ import { MascotSays } from "@/components/mascot_new";
 import { Button } from "@/components/ui-button_new";
 import { MaterialIcon } from "@/components/materials_new";
 import { MiniKnot } from "@/components/unit-path_new";
+import { MidtermFields, type MidtermValue } from "@/components/midterm-fields_new";
 
 // delay: 미리보기에 처음 나타날 때 한 줄씩 톡 떨어지는 순서(ms)
 type Row = { key: number; title: string; delay: number };
@@ -18,6 +19,9 @@ const toRows = (titles: string[]) => titles.map((title, i) => ({ key: nextKey++,
 // 강의계획서 PDF → AI가 단원 목록 생성 → 미리보기에서 고친 뒤 저장
 export function SyllabusImport({ subjectId, existingCount }: { subjectId: string; existingCount: number }) {
   const [rows, setRows] = useState<Row[] | null>(null);
+  // 중간고사: 강의계획서에서 찾은 값으로 채우고, 모르면(has null) 사용자에게 물어본다.
+  const [midterm, setMidterm] = useState<MidtermValue>({ has: null, units: 0, date: "" });
+  const [midtermNote, setMidtermNote] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -46,6 +50,21 @@ export function SyllabusImport({ subjectId, existingCount }: { subjectId: string
       const res = await unitsFromSyllabus(reg.id);
       if ("error" in res) return fail(res.error);
       setRows(toRows(res.units));
+      const mt = res.midterm;
+      setMidterm({
+        has: mt.status === "yes" ? true : mt.status === "no" ? false : null,
+        units: mt.unitCount ?? Math.ceil(res.units.length / 2),
+        date: mt.date ?? "",
+      });
+      setMidtermNote(
+        mt.status === "unknown"
+          ? "강의계획서에 중간고사 정보가 없어요. 중간고사가 있는지 알려 줘!"
+          : mt.status === "yes" && !mt.date
+            ? `중간고사 범위(${mt.unitCount}단원까지)는 찾았는데 날짜가 없어요. 날짜를 알려 줘!`
+            : mt.status === "yes"
+              ? `중간고사는 ${mt.date}, ${mt.unitCount}단원까지로 찾았어요. 맞는지 확인해 줘!`
+              : "중간고사가 없는 과목으로 읽었어요. 기말 보스만 나와요."
+      );
       setStatus(null);
     });
   };
@@ -70,9 +89,15 @@ export function SyllabusImport({ subjectId, existingCount }: { subjectId: string
   const save = () => {
     const titles = (rows ?? []).map((r) => r.title.trim()).filter(Boolean);
     if (titles.length === 0) return setError("저장할 단원이 없어요.");
+    if (midterm.has === null) return setError("중간고사가 있는지 골라 줘!");
+    if (midterm.has && !midterm.date) return setError("중간고사 날짜를 알려 줘!");
     setError(null);
     startTransition(async () => {
-      const res = await saveUnitTitles(subjectId, titles);
+      const res = await saveUnitTitles(subjectId, titles, {
+        units: midterm.has ? Math.min(midterm.units, titles.length) : 0,
+        date: midterm.has ? midterm.date : null,
+        existingCount,
+      });
       if (res.error) return setError(res.error);
       // 새 마디가 경로에 그려지면 경로(unit-path_new)가 그쪽으로 스크롤한다.
       setRows(null);
@@ -182,6 +207,23 @@ export function SyllabusImport({ subjectId, existingCount }: { subjectId: string
             <Plus className="size-4" strokeWidth={3} aria-hidden />
             단원 추가
           </Button>
+          {/* 중간고사: 계획서에서 찾은 값 확인, 없으면 여기서 물어본다 */}
+          <section className="flex flex-col gap-3 rounded-2xl border-2 border-zinc-200 bg-white p-4">
+            {midtermNote && (
+              <p
+                className={`text-sm font-semibold ${
+                  midterm.has === null || (midterm.has && !midterm.date) ? "text-brand-dark" : "text-zinc-600"
+                }`}
+              >
+                {midtermNote}
+              </p>
+            )}
+            <MidtermFields
+              value={midterm}
+              onChange={setMidterm}
+              unitTitles={rows.map((r) => r.title.trim())}
+            />
+          </section>
           <div className="flex gap-2">
             <Button
               type="button"

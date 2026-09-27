@@ -158,3 +158,8 @@ create policy "own material files upload" on storage.objects
 create policy "own material files delete" on storage.objects
   for delete to authenticated
   using (bucket_id = 'materials' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- 중간고사 보스 (9/28 추가). 앞에서부터 midterm_units개 단원이 중간고사 범위(아기 매).
+-- midterm_units가 비어 있거나 0이면 중간고사 없음(보스는 기말 하나, 모든 단원이 HP).
+alter table public.subjects add column if not exists midterm_date date;
+alter table public.subjects add column if not exists midterm_units int check (midterm_units >= 0);

@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pencil } from "lucide-react";
 import type { UnitStatus } from "@/app/unit-actions_new";
 import { DDayBadge } from "@/components/dday-badge_new";
 import { buttonClass } from "@/components/ui-button_new";
 import { BottomSheet, SheetPopover, UnitSheetBody } from "@/components/unit-sheet_new";
 import { QuizLesson } from "@/components/quiz_new";
+import { BOSSES, type ExamKind } from "@/lib/exam_new";
 
 // 단원 = 딱따구리가 오르는 나무 줄기의 마디. 위→아래로 position 순서.
 // 상태 계산(isDone·needsReview·memoryOf)은 서버에서 기존 lib 함수로 해서 kind로 넘겨받는다.
@@ -73,12 +74,15 @@ export function UnitPath({
   daysLeft,
   autoScroll,
   boss,
+  mid,
 }: {
   units: PathUnit[];
-  examDate: string | null;
+  examDate: string | null; // 기말고사(부모 매)
   daysLeft: number | null;
   autoScroll: boolean; // ?setup으로 단원 만들기에 들어온 경우엔 경로로 스크롤하지 않는다
-  boss: { remaining: number; total: number };
+  boss: { remaining: number; total: number }; // 부모 매: 중간 이후 단원(중간고사가 없으면 전체)
+  // 중간고사가 있으면: 앞에서부터 count개 단원 뒤에 아기 매 둥지를 둔다
+  mid?: { count: number; examDate: string | null; daysLeft: number | null; remaining: number; total: number } | null;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
@@ -146,7 +150,7 @@ export function UnitPath({
           const current = i === currentIndex;
           const open = openId === u.id;
           const fresh = freshIds.indexOf(u.id);
-          return (
+          const node = (
             <li
               key={u.id}
               ref={current ? currentRef : undefined}
@@ -188,9 +192,28 @@ export function UnitPath({
               )}
             </li>
           );
+          // 중간고사 범위 마지막 단원 뒤에 아기 매 둥지
+          return mid && i === mid.count - 1 ? (
+            <Fragment key={u.id}>
+              {node}
+              <BossNest
+                kind="mid"
+                examDate={mid.examDate}
+                daysLeft={mid.daysLeft}
+                defeated={mid.total > 0 && mid.remaining === 0}
+              />
+            </Fragment>
+          ) : (
+            node
+          );
         })}
 
-        <BossNest examDate={examDate} daysLeft={daysLeft} defeated={allDone}>
+        <BossNest
+          kind="final"
+          examDate={examDate}
+          daysLeft={daysLeft}
+          defeated={boss.total > 0 ? boss.remaining === 0 : allDone}
+        >
           {allDone && <Woodpecker side={-1} />}
         </BossNest>
       </ol>
@@ -205,7 +228,11 @@ export function UnitPath({
         <QuizLesson
           unitId={quizUnit.id}
           review={quizUnit.kind === "done" || quizUnit.kind === "fading"}
-          boss={boss}
+          boss={
+            mid && units.findIndex((u) => u.id === quizUnit.id) < mid.count
+              ? { remaining: mid.remaining, total: mid.total, kind: "mid" }
+              : { ...boss, kind: "final" }
+          }
           onClose={() => setQuizId(null)}
         />
       )}
@@ -400,20 +427,26 @@ function Woodpecker({ side }: { side: -1 | 1 }) {
   );
 }
 
-// 경로 끝: 보스 매가 기다리는 둥지
+// 보스 매가 기다리는 둥지. 경로 끝엔 부모 매(기말), 중간고사 범위 끝엔 아기 매(중간).
 function BossNest({
+  kind,
   examDate,
   daysLeft,
   defeated,
   children,
 }: {
+  kind: ExamKind;
   examDate: string | null;
   daysLeft: number | null;
   defeated: boolean;
   children?: React.ReactNode;
 }) {
+  const boss = BOSSES[kind];
   return (
-    <li id="unit-path-end" className="relative flex w-40 flex-col items-center pt-2">
+    <li
+      id={kind === "final" ? "unit-path-end" : "unit-path-mid"}
+      className="relative flex w-40 flex-col items-center pt-2"
+    >
       {children}
       <div
         className="relative size-24 rounded-full border-b-[6px] border-[#6f4b2f]"
@@ -429,11 +462,13 @@ function BossNest({
           </g>
         </svg>
         <Image
-          src="/hawk_new.png"
-          alt="보스 매"
-          width={46}
-          height={71}
-          className={`absolute bottom-5 left-1/2 -ml-[23px] ${defeated ? "boss-defeated" : "boss-hover"}`}
+          src={boss.image}
+          alt={`보스 ${boss.name}`}
+          width={kind === "mid" ? 52 : 46}
+          height={kind === "mid" ? 67 : 71}
+          className={`absolute left-1/2 ${kind === "mid" ? "bottom-3 -ml-[26px]" : "bottom-5 -ml-[23px]"} ${
+            defeated ? "boss-defeated" : "boss-hover"
+          }`}
         />
         {/* 둥지 앞 테두리가 매 발을 덮는다 */}
         <svg viewBox="0 0 96 90" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
@@ -451,7 +486,7 @@ function BossNest({
         )}
       </div>
       <span className="mt-2 flex flex-wrap items-center justify-center gap-1.5 rounded-lg bg-paper/90 px-1.5 text-sm font-semibold text-ink">
-        {examDate ? `시험 ${examDate.slice(5).replace("-", "/")}` : "시험일 미정"}
+        {examDate ? `${boss.exam} ${examDate.slice(5).replace("-", "/")}` : `${boss.exam} 날짜 미정`}
         {daysLeft !== null && <DDayBadge days={daysLeft} />}
       </span>
     </li>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { CircleCheck, Leaf } from "lucide-react";
+import { BOSSES } from "@/lib/exam_new";
 import { addDays, type Plan } from "@/lib/plan_new";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -106,7 +107,14 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
               >
                 {Number(d.slice(8))}
               </span>
-              {dayExams.length > 0 && <Image src="/hawk_new.png" alt="시험 날" width={12} height={19} />}
+              {dayExams.length > 0 && (
+                <Image
+                  src={BOSSES[dayExams.some((e) => e.kind === "final") ? "final" : "mid"].image}
+                  alt="시험 날"
+                  width={dayExams.some((e) => e.kind === "final") ? 12 : 15}
+                  height={19}
+                />
+              )}
               {isLight && dayExams.length === 0 && <Leaf className="size-2.5 text-forest" aria-label="가벼운 날" />}
               {count > 0 && (
                 <>
@@ -151,11 +159,17 @@ export function StudyCalendar({ plan }: { plan: Plan }) {
 
         {exams.map((e) => (
           <p
-            key={e.subjectId}
+            key={`${e.subjectId}-${e.kind}`}
             className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700"
           >
-            <Image src="/hawk_new.png" alt="" width={16} height={25} className="boss-hover" />
-            {e.subjectName} 시험 날 · 보스가 와요!
+            <Image
+              src={BOSSES[e.kind].image}
+              alt=""
+              width={e.kind === "mid" ? 19 : 16}
+              height={25}
+              className="boss-hover"
+            />
+            {e.subjectName} {e.label} 날 · {BOSSES[e.kind].name}가 와요!
           </p>
         ))}
 

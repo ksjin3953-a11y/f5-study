@@ -6,7 +6,7 @@ import { UnitSetup } from "@/components/unit-setup_new";
 import { Materials } from "@/components/materials_new";
 import { MascotSays } from "@/components/mascot_new";
 import { BossPanel } from "@/components/boss-panel_new";
-import { daysUntil, isDone, needsReview, studyWeather } from "@/lib/weather_new";
+import { isDone, needsReview, studyWeather } from "@/lib/weather_new";
 import { DDayBadge } from "@/components/dday-badge_new";
 import { HawkTaunt } from "@/components/hawk-taunt_new";
 import { DeleteSubject } from "@/components/delete-subject_new";
@@ -15,6 +15,8 @@ import { WeatherIcon } from "@/components/weather-icon_new";
 import { UnitPath, type PathUnit } from "@/components/unit-path_new";
 import { lastStudyAt, petNameOf } from "@/lib/game_new";
 import { memoryOf } from "@/lib/memory_new";
+import { BOSSES, examPhases, examView } from "@/lib/exam_new";
+import { MidtermSettings } from "@/components/midterm-fields_new";
 import type { UnitStatus } from "@/app/unit-actions_new";
 
 export default async function SubjectPage({ params, searchParams }: PageProps<"/subjects/[id]">) {
@@ -30,7 +32,7 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
 
   const { data: subject } = await supabase
     .from("subjects")
-    .select("id, name, professor, exam_date, created_at")
+    .select("id, name, professor, exam_date, midterm_date, midterm_units, created_at")
     .eq("id", id)
     .maybeSingle();
   if (!subject) notFound();
@@ -38,7 +40,7 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
   const { data: units } = await supabase
     .from("units")
     .select(
-      "id, title, status, completed_at, study_logs(id, studied_at, memo), quiz_results(score, total, passed, created_at)"
+      "id, title, status, position, completed_at, study_logs(id, studied_at, memo), quiz_results(score, total, passed, created_at)"
     )
     .eq("subject_id", id)
     .order("position");
@@ -55,14 +57,22 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
   const total = units?.length ?? 0;
   const done = units?.filter(isDone).length ?? 0;
   const percent = total ? Math.round((done / total) * 100) : 0;
-  const weather = studyWeather({ ...subject, units: units ?? [] });
-  const daysLeft = subject.exam_date ? daysUntil(subject.exam_date) : null;
+  // 보스: 중간고사가 있으면 아기 매 → 부모 매. 날씨는 지금 상대하는 보스의 시험일·범위로 계산한다.
+  const { mid, final, current } = examPhases(subject, units ?? []);
+  const weather = studyWeather(examView({ ...subject, units: units ?? [] }));
+  const daysLeft = final.daysLeft; // 기말고사(부모 매)
   const lastStudy = lastStudyAt(units ?? []);
+  const currentBoss = BOSSES[current.kind];
 
   // 보스가 흥분하는 조건은 BossPanel과 같다: 시험 7일 이내 + HP 50% 이상 남음
-  const remaining = total - done;
+  const remaining = current.remaining;
   const hawkAngry =
-    remaining > 0 && daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && total > 0 && remaining / total >= 0.5;
+    remaining > 0 &&
+    current.daysLeft !== null &&
+    current.daysLeft >= 0 &&
+    current.daysLeft <= 7 &&
+    current.total > 0 &&
+    remaining / current.total >= 0.5;
 
   // 나무 경로에 넘길 단원 정보. 상태 판단은 기존 lib 함수(isDone·needsReview·memoryOf) 그대로.
   const materialCount = new Map<string, number>();
@@ -112,9 +122,9 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
               <span className="mt-0.5 block">{weather.detail}</span>
             </MascotSays>
             <Image
-              src="/hawk_new.png"
-              alt="보스 매"
-              width={64}
+              src={currentBoss.image}
+              alt={`보스 ${currentBoss.name}`}
+              width={current.kind === "mid" ? 77 : 64}
               height={99}
               className={`shrink-0 drop-shadow-[0_6px_6px_rgb(60_40_20/0.25)] ${hawkAngry ? "boss-angry" : "boss-hover"}`}
             />
@@ -124,9 +134,16 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
             <h1 className="font-display text-3xl">{subject.name}</h1>
             <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-zinc-500">
               {subject.professor && <span>{subject.professor} ·</span>}
+              {mid && mid.date && mid.daysLeft !== null && (
+                <>
+                  <span>중간 {mid.date}</span>
+                  <DDayBadge days={mid.daysLeft} />
+                  <span>·</span>
+                </>
+              )}
               {subject.exam_date && daysLeft !== null ? (
                 <>
-                  <span>시험 {subject.exam_date}</span>
+                  <span>{mid ? "기말" : "시험"} {subject.exam_date}</span>
                   <DDayBadge days={daysLeft} />
                 </>
               ) : (
@@ -137,7 +154,13 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
         </div>
 
         <div className="flex flex-col gap-2">
-          <BossPanel remaining={remaining} total={total} daysLeft={daysLeft} />
+          <BossPanel
+            kind={current.kind}
+            remaining={current.remaining}
+            total={current.total}
+            daysLeft={current.daysLeft}
+            after={current.kind === "final" && mid ? (mid.defeated ? "defeated" : "over") : undefined}
+          />
           {total > 0 && (
             <p className="text-right text-xs tabular-nums text-zinc-500">
               {done}/{total} 단원 · {percent}%
@@ -152,7 +175,21 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
             examDate={subject.exam_date}
             daysLeft={daysLeft}
             autoScroll={!setup}
-            boss={{ remaining, total }}
+            boss={{ remaining: final.remaining, total: final.total }}
+            mid={
+              mid && {
+                count: mid.total,
+                examDate: mid.date,
+                daysLeft: mid.daysLeft,
+                remaining: mid.remaining,
+                total: mid.total,
+              }
+            }
+          />
+          <MidtermSettings
+            subjectId={subject.id}
+            unitTitles={(units ?? []).map((u) => u.title)}
+            initial={{ units: subject.midterm_units, date: subject.midterm_date }}
           />
         </section>
 
@@ -177,7 +214,7 @@ export default async function SubjectPage({ params, searchParams }: PageProps<"/
           key={lastStudy ?? "never"}
           lastStudyAt={lastStudy}
           petName={petNameOf(user)}
-          target={{ subjectId: subject.id, subjectName: subject.name, daysLeft, remaining }}
+          target={{ subjectId: subject.id, subjectName: subject.name, daysLeft: current.daysLeft, remaining }}
         />
       </div>
     </AppShell>

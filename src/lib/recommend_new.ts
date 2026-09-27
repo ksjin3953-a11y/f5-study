@@ -3,6 +3,7 @@
 
 import { daysUntil, isDone, needsReview, studyWeather } from "@/lib/weather_new";
 import { buildPlan } from "@/lib/plan_new";
+import { examView } from "@/lib/exam_new";
 import { isFading } from "@/lib/memory_new";
 
 const MAX_SUBJECTS = 3;
@@ -21,6 +22,8 @@ type SubjectLike = {
   id: string;
   name: string;
   exam_date: string | null;
+  midterm_date?: string | null;
+  midterm_units?: number | null;
   created_at: string;
   units: UnitLike[];
 };
@@ -47,7 +50,9 @@ export function recommendToday(subjects: SubjectLike[]): TodayRecommendations {
 
   const recommendations = todayEntries
     .flatMap((entry) => {
-      const s = subjects.find((x) => x.id === entry.subjectId);
+      // 지금 상대하는 보스(중간/기말)의 시험일·범위 기준
+      const found = subjects.find((x) => x.id === entry.subjectId);
+      const s = found && examView(found);
       if (!s?.exam_date) return [];
       const planned = new Set(entry.units.filter((u) => !u.done).map((u) => u.id));
       const units = s.units
